@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #7A1F2B;
+  --color-secondary: #D4AF37;
+  --color-heritage-bg: #F8F4EC;
+  --color-accent: #B8860B;
+  --color-charcoal: #1F1F1F;
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-cinzel: "Cinzel", serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --shadow-royal: 0 10px 35px -10px rgba(122, 31, 43, 0.15);
+  --shadow-gold: 0 10px 25px -5px rgba(212, 175, 55, 0.2);
+}
+
+/* Custom Scrollbars in Heritage Aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F4EC;
+}
+::-webkit-scrollbar-thumb {
+  background: #7A1F2B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8860B;
+}
+
+/* Animated Golden Glow */
+@keyframes goldGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
+    border-color: rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
+    border-color: rgba(212, 175, 55, 0.9);
+  }
+}
+
+.gold-glow-active {
+  animation: goldGlow 3s infinite ease-in-out;
+}
+
+/* Jali Background Overlay Pattern */
+.jali-overlay {
+  background-image: radial-gradient(circle at 2px 2px, #D4AF37 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Maharaja Premium Inputs */
+.input-maharaja {
+  background-color: #F8F4EC;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  outline: none;
+  border-radius: 0.375rem; /* rounded-md */
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+.input-maharaja:focus {
+  border-color: #7A1F2B;
+}
+
+/* Maharaja Premium Buttons */
+.btn-maharaja {
+  background-color: #7A1F2B;
+  color: #F8F4EC;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em; /* tracking-widest */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+  border-radius: 0.375rem;
+  border-bottom: 4px solid #5A1720;
+}
+.btn-maharaja:hover {
+  background-color: #601923;
+}
+
+/* Secondary Buttons */
+.btn-maharaja-secondary {
+  border: 1px solid #D4AF37;
+  color: #7A1F2B;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em; /* tracking-widest */
+  background-color: transparent;
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+  border-radius: 0.375rem;
+}
+.btn-maharaja-secondary:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+}
+
+/* Global inputs overrides inside the Wizard panel elements */
+#registration-wizard input[type="text"], 
+#registration-wizard input[type="date"], 
+#registration-wizard input[type="email"], 
+#registration-wizard input[type="tel"], 
+#registration-wizard select, 
+#registration-wizard textarea {
+  background-color: #F8F4EC !important;
+  border: 1px solid rgba(212, 175, 55, 0.35) !important;
+  color: #1F1F1F !important;
+  border-radius: 0.375rem !important;
+  font-family: inherit !important;
+  padding: 0.75rem !important;
+  font-size: 0.75rem !important;
+  transition: all 0.2s ease-in-out !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+#registration-wizard input[type="text"]:focus, 
+#registration-wizard input[type="date"]:focus, 
+#registration-wizard input[type="email"]:focus, 
+#registration-wizard input[type="tel"]:focus, 
+#registration-wizard select:focus, 
+#registration-wizard textarea:focus {
+  border-color: #7A1F2B !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(122, 31, 43, 0.15) !important;
+}
+
+#registration-wizard label {
+  color: #4A4A4A !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.025em;
+}
+

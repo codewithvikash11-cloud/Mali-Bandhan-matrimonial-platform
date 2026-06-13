@@ -1,0 +1,6 @@
+{
+  "name": "Rajasthan Mali Bandhan",
+  "description": "Premium matrimonial platform for the Rajasthan Mali Samaj. Clean luxury royal theme with profile wizards, browse matches, premium plans, search filters, and heritage profiles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
