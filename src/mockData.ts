@@ -10,6 +10,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 98765 43210",
     email: "aarav.saini@gmail.com",
     gotra: "Kachhawaha",
+    ownGotra: "Kachhawaha",
+    motherGotra: "Sankhla",
+    dadiGotra: "Panwar",
+    naniGotra: "Deora",
     district: "Jodhpur",
     tehsil: "Luni",
     village: "Salawas",
@@ -36,7 +40,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: true,
     isShortlisted: false,
-    interestStatus: "none"
+    interestStatus: "none",
+    managedBy: "Self",
+    isCommunityVerified: true,
+    profileCompletion: 95,
+    lastActive: "Active 5 mins ago",
+    isOnline: true
   },
   {
     id: "mali-2",
@@ -47,6 +56,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 87654 32109",
     email: "priyanka.saini@outlook.com",
     gotra: "Gehlot",
+    ownGotra: "Gehlot",
+    motherGotra: "Solanki",
+    dadiGotra: "Tak",
+    naniGotra: "Tanwar",
     district: "Jaipur",
     tehsil: "Sanganer",
     village: "Mohanpura",
@@ -73,7 +86,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: true,
     isShortlisted: true,
-    interestStatus: "received"
+    interestStatus: "received",
+    managedBy: "Father",
+    isCommunityVerified: true,
+    profileCompletion: 100,
+    lastActive: "Active now",
+    isOnline: true
   },
   {
     id: "mali-3",
@@ -84,6 +102,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 76543 21098",
     email: "vikram.gehlot@gmail.com",
     gotra: "Solanki",
+    ownGotra: "Solanki",
+    motherGotra: "Saini",
+    dadiGotra: "Singhal",
+    naniGotra: "Parihar",
     district: "Pali",
     tehsil: "Sumerpur",
     village: "Pomawa",
@@ -109,7 +131,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: false,
     isShortlisted: false,
-    interestStatus: "none"
+    interestStatus: "none",
+    managedBy: "Brother",
+    isCommunityVerified: true,
+    profileCompletion: 85,
+    lastActive: "Active 2 hours ago",
+    isOnline: false
   },
   {
     id: "mali-4",
@@ -120,6 +147,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 95432 10987",
     email: "anjali.saini@yahoo.com",
     gotra: "Tak",
+    ownGotra: "Tak",
+    motherGotra: "Gehlot",
+    dadiGotra: "Borana",
+    naniGotra: "Rathore",
     district: "Ajmer",
     tehsil: "Beawar",
     village: "Rupnagar",
@@ -145,7 +176,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: false,
     premium: true,
     isShortlisted: false,
-    interestStatus: "none"
+    interestStatus: "none",
+    managedBy: "Mother",
+    isCommunityVerified: false,
+    profileCompletion: 78,
+    lastActive: "Active 1 day ago",
+    isOnline: false
   },
   {
     id: "mali-5",
@@ -156,6 +192,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 91234 56789",
     email: "rajesh.sa@gmail.com",
     gotra: "Tanwar",
+    ownGotra: "Tanwar",
+    motherGotra: "Panwar",
+    dadiGotra: "Bhati",
+    naniGotra: "Khichi",
     district: "Udaipur",
     tehsil: "Girwa",
     village: "Bari",
@@ -181,7 +221,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: false,
     isShortlisted: false,
-    interestStatus: "accepted"
+    interestStatus: "accepted",
+    managedBy: "Father",
+    isCommunityVerified: true,
+    profileCompletion: 90,
+    lastActive: "Active 30 mins ago",
+    isOnline: true
   },
   {
     id: "mali-6",
@@ -192,6 +237,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 93456 78901",
     email: "kiran.k@gmail.com",
     gotra: "Sankhla",
+    ownGotra: "Sankhla",
+    motherGotra: "Gehlot",
+    dadiGotra: "Solanki",
+    naniGotra: "Goyal",
     district: "Bikaner",
     tehsil: "Nokha",
     village: "Sujandesar",
@@ -217,7 +266,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: true,
     isShortlisted: false,
-    interestStatus: "none"
+    interestStatus: "none",
+    managedBy: "Self",
+    isCommunityVerified: true,
+    profileCompletion: 92,
+    lastActive: "Active 10 mins ago",
+    isOnline: true
   },
   {
     id: "mali-7",
@@ -228,6 +282,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 94567 89012",
     email: "deepak.panwar@yahoo.co.in",
     gotra: "Saini",
+    ownGotra: "Saini",
+    motherGotra: "Panwar",
+    dadiGotra: "Borana",
+    naniGotra: "Tanwar",
     district: "Kota",
     tehsil: "Ladpura",
     village: "Kathera",
@@ -255,7 +313,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: true,
     isShortlisted: false,
-    interestStatus: "none"
+    interestStatus: "none",
+    managedBy: "Relative",
+    isCommunityVerified: true,
+    profileCompletion: 100,
+    lastActive: "Active 4 hours ago",
+    isOnline: false
   },
   {
     id: "mali-8",
@@ -266,6 +329,10 @@ export const INITIAL_PROFILES: Profile[] = [
     mobile: "+91 95678 90123",
     email: "neetu.saini@gmail.com",
     gotra: "Deora",
+    ownGotra: "Deora",
+    motherGotra: "Sankhla",
+    dadiGotra: "Chauhan",
+    naniGotra: "Kachhawaha",
     district: "Jodhpur",
     tehsil: "Piparcity",
     village: "Sariya",
@@ -291,7 +358,12 @@ export const INITIAL_PROFILES: Profile[] = [
     verified: true,
     premium: false,
     isShortlisted: false,
-    interestStatus: "sent"
+    interestStatus: "sent",
+    managedBy: "Father",
+    isCommunityVerified: true,
+    profileCompletion: 88,
+    lastActive: "Active 1 hour ago",
+    isOnline: false
   }
 ];
 

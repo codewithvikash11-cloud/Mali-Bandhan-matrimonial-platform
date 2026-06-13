@@ -6,7 +6,11 @@ export interface Profile {
   dob: string;
   mobile: string;
   email: string;
-  gotra: string;
+  gotra: string; // Own Gotra
+  ownGotra?: string; // Same as gotra
+  motherGotra?: string; // Mother's Gotra
+  dadiGotra?: string; // Father's Mother's Gotra
+  naniGotra?: string; // Mother's Mother's Gotra
   district: string;
   tehsil: string;
   village: string;
@@ -35,6 +39,15 @@ export interface Profile {
   premium: boolean;
   isShortlisted: boolean;
   interestStatus: 'none' | 'sent' | 'received' | 'accepted' | 'rejected';
+  
+  // New Rajasthan Mali Samaj traditional attributes
+  managedBy?: 'Self' | 'Father' | 'Mother' | 'Brother' | 'Sister' | 'Relative';
+  isCommunityVerified?: boolean;
+  profileCompletion?: number;
+  lastActive?: string;
+  isOnline?: boolean;
+  isBlocked?: boolean;
+  isReported?: boolean;
 }
 
 export interface SuccessStory {

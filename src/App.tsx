@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, Search, Bookmark, Award, Bell, Settings, Heart, HelpCircle, Scale, Sparkles, 
   MapPin, Landmark, ShieldCheck, Mail, Lock, Phone, User, Check, AlertCircle, Eye, 
-  ChevronRight, ArrowRight, UserCheck, Star, Send, Filter, LogOut, CheckCircle, Flame
+  ChevronRight, ArrowRight, UserCheck, Star, Send, Filter, LogOut, CheckCircle, Flame, ChevronDown
 } from 'lucide-react';
 import { Profile, ScreenState, NotificationItem, SuccessStory } from './types';
 import { INITIAL_PROFILES, SUCCESS_STORIES, INITIAL_NOTIFICATIONS } from './mockData';
@@ -15,6 +15,8 @@ import LegalPages from './components/LegalPages';
 import Wizard from './components/Wizard';
 import MembershipAndPayment from './components/MembershipAndPayment';
 import MaliAssistant from './components/MaliAssistant';
+import { locationDb } from './locationDb';
+import { EDUCATION_OPTIONS, OCCUPATION_OPTIONS, INCOME_OPTIONS } from './components/CareerSection';
 
 export default function App() {
   // Navigation State
@@ -63,6 +65,19 @@ export default function App() {
   const [filterMaritalStatus, setFilterMaritalStatus] = useState<string>('All');
   const [filterPremiumOnly, setFilterPremiumOnly] = useState<boolean>(false);
 
+  // Search filter location dropdown systems
+  const [isFilterDistrictOpen, setIsFilterDistrictOpen] = useState(false);
+  const [filterDistrictSearch, setFilterDistrictSearch] = useState("");
+  const [isFilterTehsilOpen, setIsFilterTehsilOpen] = useState(false);
+  const [filterTehsilSearch, setFilterTehsilSearch] = useState("");
+
+  // Search filter career dropdown systems
+  const [isFilterEduOpen, setIsFilterEduOpen] = useState(false);
+  const [filterEduSearch, setFilterEduSearch] = useState("");
+  const [isFilterOccOpen, setIsFilterOccOpen] = useState(false);
+  const [filterOccSearch, setFilterOccSearch] = useState("");
+  const [isFilterIncomeOpen, setIsFilterIncomeOpen] = useState(false);
+
   // Quick Global Search Box
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -89,6 +104,38 @@ export default function App() {
       ...newStoryData
     };
     setSuccessStories(prev => [freshStory, ...prev]);
+  };
+
+  // Dynamic toast system for elegant UI reports
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(prev => prev === msg ? null : prev);
+    }, 4500);
+  };
+
+  const handleBlockProfile = (id: string) => {
+    setProfiles(prev => prev.map(p => {
+      if (p.id === id) {
+        return { ...p, isBlocked: true };
+      }
+      return p;
+    }));
+    showToast("Profile blocked successfully. It has been removed from all candidate lists.");
+    setActiveView('BROWSE');
+  };
+
+  const handleReportProfile = (id: string, reason: string) => {
+    setProfiles(prev => prev.map(p => {
+      if (p.id === id) {
+        return { ...p, isReported: true };
+      }
+      return p;
+    }));
+    showToast(`Profile successfully flagged. Our community moderators will review it within 24 hours.`);
+    setShowReportModal(false);
   };
 
   // Profile selection wrapper for detailed screen
@@ -181,6 +228,10 @@ export default function App() {
       mobile: "+91 94140 28421",
       email: "guardian.family@gmail.com",
       gotra: isGroom ? "Solanki" : "Sankhla",
+      ownGotra: isGroom ? "Solanki" : "Sankhla",
+      motherGotra: isGroom ? "Tanwar" : "Gehlot",
+      dadiGotra: isGroom ? "Sankhla" : "Solanki",
+      naniGotra: isGroom ? "Kachhawaha" : "Tak",
       district: "Jodhpur",
       tehsil: "Luni",
       village: "Salawas",
@@ -206,7 +257,12 @@ export default function App() {
       verified: true,
       premium: true,
       isShortlisted: false,
-      interestStatus: 'none'
+      interestStatus: 'none',
+      managedBy: isGroom ? 'Self' : 'Father',
+      isCommunityVerified: true,
+      profileCompletion: 100,
+      lastActive: "Active now",
+      isOnline: true
     };
     setCurrentUser(demoProfile);
     setMembershipStatus('Gold');
@@ -216,6 +272,9 @@ export default function App() {
   // Filter profiles based on inputs + search matching
   const filteredProfiles = useMemo(() => {
     return profiles.filter(p => {
+      // Never show blocked profiles
+      if (p.isBlocked) return false;
+
       // Never show current user in matching candidates
       if (currentUser && p.id === currentUser.id) return false;
       
@@ -249,8 +308,39 @@ export default function App() {
       // Filter by Occupation text
       if (filterOccupation !== 'All' && !p.occupation.toLowerCase().includes(filterOccupation.toLowerCase())) return false;
 
-      // Filter by Income
-      if (filterIncome !== 'All' && p.income && !p.income.toLowerCase().includes(filterIncome.toLowerCase())) return false;
+      // Filter by Income with smart numeric range matching
+      if (filterIncome !== 'All') {
+        const extractNum = (str: string) => {
+          const match = str.replace(/,/g, '').match(/([0-9.]+)/);
+          return match ? parseFloat(match[1]) : 0;
+        };
+        const pVal = extractNum(p.income || '');
+        let isMatch = false;
+        if (filterIncome === "No Income") {
+          isMatch = pVal === 0 || (p.income && p.income.toLowerCase().includes("no income"));
+        } else if (filterIncome === "Below ₹1 Lakh") {
+          isMatch = pVal > 0 && pVal < 1;
+        } else if (filterIncome === "₹1-3 Lakh") {
+          isMatch = pVal >= 1 && pVal <= 3;
+        } else if (filterIncome === "₹3-5 Lakh") {
+          isMatch = pVal >= 3 && pVal <= 5;
+        } else if (filterIncome === "₹5-8 Lakh") {
+          isMatch = pVal >= 5 && pVal <= 8;
+        } else if (filterIncome === "₹8-12 Lakh") {
+          isMatch = pVal >= 8 && pVal <= 12;
+        } else if (filterIncome === "₹12-20 Lakh") {
+          isMatch = pVal >= 12 && pVal <= 20;
+        } else if (filterIncome === "₹20-50 Lakh") {
+          isMatch = pVal >= 20 && pVal <= 50;
+        } else if (filterIncome === "₹50 Lakh+") {
+          isMatch = pVal >= 50;
+        } else if (filterIncome === "Prefer Not To Say") {
+          isMatch = true;
+        } else {
+          isMatch = p.income ? p.income.toLowerCase().includes(filterIncome.toLowerCase()) : false;
+        }
+        if (!isMatch) return false;
+      }
 
       // Filter by Marital Status
       if (filterMaritalStatus !== 'All' && p.maritalStatus !== filterMaritalStatus) return false;
@@ -278,6 +368,43 @@ export default function App() {
   const currentDetailProfile = useMemo(() => {
     return profiles.find(p => p.id === selectedProfileId) || null;
   }, [profiles, selectedProfileId]);
+
+  // Traditional Rajasthan Mali Samaj Gotra Compatibility check computation
+  const compatibilityResults = useMemo(() => {
+    if (!currentDetailProfile || !currentUser) return null;
+
+    // Grab both paternal and maternal gotras for comparative analysis
+    const ownGotraVal = currentDetailProfile.ownGotra || currentDetailProfile.gotra || '';
+    const motherGotraVal = currentDetailProfile.motherGotra || 'Sankhla';
+    const dadiGotraVal = currentDetailProfile.dadiGotra || 'Tak';
+    const naniGotraVal = currentDetailProfile.naniGotra || 'Deora';
+
+    const viewerGotras = [
+      currentUser.ownGotra || currentUser.gotra,
+      currentUser.motherGotra,
+      currentUser.dadiGotra,
+      currentUser.naniGotra
+    ].filter(Boolean).map(g => g.trim().toLowerCase());
+
+    const isOwnGotraMatch = viewerGotras.includes(ownGotraVal.trim().toLowerCase());
+    const isMotherGotraMatch = viewerGotras.includes(motherGotraVal.trim().toLowerCase());
+    const isDadiGotraMatch = viewerGotras.includes(dadiGotraVal.trim().toLowerCase());
+    const isNaniGotraMatch = viewerGotras.includes(naniGotraVal.trim().toLowerCase());
+
+    const hasGotraMatch = isOwnGotraMatch || isMotherGotraMatch || isDadiGotraMatch || isNaniGotraMatch;
+
+    return {
+      isOwnGotraMatch,
+      isMotherGotraMatch,
+      isDadiGotraMatch,
+      isNaniGotraMatch,
+      hasGotraMatch,
+      ownGotraVal,
+      motherGotraVal,
+      dadiGotraVal,
+      naniGotraVal
+    };
+  }, [currentDetailProfile, currentUser]);
 
   // Statistics for Dashboard widgets
   const stats = useMemo(() => {
@@ -743,13 +870,45 @@ export default function App() {
                           {/* Detail Content Section */}
                           <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                             
-                            <div className="space-y-1 text-center sm:text-left">
-                              <h3 className="font-cinzel text-sm font-bold text-gray-800 tracking-tight block">
-                                {candidate.name}
-                              </h3>
+                            <div className="space-y-1.5 text-center sm:text-left">
+                              {/* Online / Active status & Managed by */}
+                              <div className="flex items-center justify-between gap-1 text-[10px]">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`h-2 w-2 rounded-full ${candidate.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></span>
+                                  <span className="text-gray-400 font-mono">{candidate.lastActive || 'Active recently'}</span>
+                                </div>
+                                <span className="bg-amber-100/60 text-amber-950 px-1.5 py-0.5 rounded text-[9px] font-semibold font-cinzel">
+                                  {candidate.managedBy ? `By ${candidate.managedBy}` : 'By Father'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1 mt-1">
+                                <h3 className="font-cinzel text-sm font-bold text-gray-800 tracking-tight block">
+                                  {candidate.name}
+                                </h3>
+                                {candidate.isCommunityVerified && (
+                                  <span className="text-amber-700 bg-amber-50 border border-amber-200 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 uppercase shrink-0">
+                                    ★ Verified
+                                  </span>
+                                )}
+                              </div>
+
                               <p className="text-[11px] text-gray-400 font-serif italic">Gotra: <strong>{candidate.gotra}</strong></p>
                               
-                              <div className="h-px bg-gray-100 my-2"></div>
+                              {/* Profile Completion Bar */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[8px] text-gray-400 font-mono">
+                                  <span>Strength: {candidate.profileCompletion || 85}%</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" 
+                                    style={{ width: `${candidate.profileCompletion || 85}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+
+                              <div className="h-px bg-gray-100 my-1"></div>
                               
                               <p className="text-[11px] text-gray-600 flex items-center justify-center sm:justify-start gap-1 font-mono">
                                 <MapPin className="h-3.5 w-3.5 text-amber-700 shrink-0" /> {candidate.district}, Rajasthan
@@ -834,23 +993,73 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* District selection */}
-                    <div className="space-y-2">
+                    {/* District selection with advanced search dropdown */}
+                    <div className="space-y-2 relative">
                       <label className="font-bold text-[#7A1F2B] block">Rajasthan Native District</label>
-                      <select 
-                        value={filterDistrict} 
-                        onChange={(e) => setFilterDistrict(e.target.value)}
-                        className="w-full p-3 border border-gray-300 bg-white rounded focus:outline-[#7A1F2B] font-mono"
+                      <button
+                        type="button"
+                        onClick={() => setIsFilterDistrictOpen(!isFilterDistrictOpen)}
+                        className="w-full text-left text-xs p-3 border border-gray-300 bg-white rounded-xl focus:outline-none flex justify-between items-center cursor-pointer"
                       >
-                        <option value="All">All Districts (Jaipur/Jodhpur/Pali/Bikaner)</option>
-                        <option value="Jodhpur">Jodhpur (जोधपुर)</option>
-                        <option value="Jaipur">Jaipur (जयपुर)</option>
-                        <option value="Udaipur">Udaipur (उदयपुर)</option>
-                        <option value="Pali">Pali (पाली)</option>
-                        <option value="Ajmer">Ajmer (अजमेर)</option>
-                        <option value="Bikaner">Bikaner (बीकानेर)</option>
-                        <option value="Kota">Kota (कोटा)</option>
-                      </select>
+                        <span className="font-semibold text-gray-800">
+                          {filterDistrict === 'All' ? "All Districts (Jaipur/Jodhpur/Pali...)" : `${filterDistrict}, Rajasthan`}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </button>
+
+                      {isFilterDistrictOpen && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-56 overflow-hidden flex flex-col animate-fade-in">
+                          <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-[#F8F4EC]/30">
+                            <Search className="h-4 w-4 text-[#7A1F2B]" />
+                            <input
+                              type="text"
+                              placeholder="Search districts (e.g. Didwana, Kekri, Sikar)..."
+                              value={filterDistrictSearch}
+                              onChange={(e) => setFilterDistrictSearch(e.target.value)}
+                              className="w-full text-[11px] bg-transparent border-none outline-none py-1 text-gray-800"
+                              autoFocus
+                            />
+                          </div>
+                          
+                          <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-40">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilterDistrict('All');
+                                setFilterTehsil('All');
+                                setFilterVillage('All');
+                                setFilterDistrictSearch('');
+                                setIsFilterDistrictOpen(false);
+                              }}
+                              className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer"
+                            >
+                              <strong className="text-[#7A1F2B]">All Districts (सभी ज़िले)</strong>
+                              {filterDistrict === 'All' && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                            </button>
+
+                            {locationDb.getDistricts()
+                              .filter(d => d.name.toLowerCase().includes(filterDistrictSearch.toLowerCase()))
+                              .map((d) => (
+                                <button
+                                  key={d.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setFilterDistrict(d.name);
+                                    setFilterTehsil('All'); // Reset hierarchy
+                                    setFilterVillage('All');
+                                    setFilterDistrictSearch('');
+                                    setIsFilterDistrictOpen(false);
+                                  }}
+                                  className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer"
+                                >
+                                  <span>{d.name}</span>
+                                  {filterDistrict === d.name && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                                </button>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Gotra Selection */}
@@ -859,7 +1068,7 @@ export default function App() {
                       <select 
                         value={filterGotra} 
                         onChange={(e) => setFilterGotra(e.target.value)}
-                        className="w-full p-3 border border-gray-300 bg-white rounded focus:outline-[#7A1F2B] font-mono"
+                        className="w-full p-3 border border-gray-300 bg-white rounded-xl focus:outline-[#7A1F2B] font-mono text-xs"
                       >
                         <option value="All">All Mali Gotras (Gehlot/Saini/Kachhawaha...)</option>
                         <option value="Gehlot">Gehlot</option>
@@ -874,80 +1083,289 @@ export default function App() {
                       </select>
                     </div>
 
-                    {/* Tehsil selection */}
-                    <div className="space-y-2">
-                       <label className="font-bold text-[#7A1F2B] block">Taluka / Tehsil (तहसील)</label>
-                       <input 
-                         type="text" 
-                         value={filterTehsil === 'All' ? '' : filterTehsil} 
-                         onChange={(e) => setFilterTehsil(e.target.value || 'All')}
-                         placeholder="e.g. Luni, Bilara, Osian"
-                         className="w-full p-3 border border-gray-300 rounded focus:outline-[#7A1F2B]"
-                       />
+                    {/* Tehsil selection linked dynamically to District selection */}
+                    <div className="space-y-2 relative">
+                      <label className="font-bold text-[#7A1F2B] block">Taluka / Tehsil (तहसील)</label>
+                      <button
+                        type="button"
+                        disabled={filterDistrict === 'All'}
+                        onClick={() => setIsFilterTehsilOpen(!isFilterTehsilOpen)}
+                        className={`w-full text-left text-xs p-3 border border-gray-300 bg-white rounded-xl focus:outline-none flex justify-between items-center cursor-pointer ${
+                          filterDistrict === 'All' ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''
+                        }`}
+                      >
+                        <span className="font-semibold text-gray-800">
+                          {filterDistrict === 'All' 
+                            ? "Select district first..." 
+                            : filterTehsil === 'All' 
+                              ? "All Tehsils (सभी तहसीलें)" 
+                              : filterTehsil
+                          }
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </button>
+
+                      {isFilterTehsilOpen && filterDistrict !== 'All' && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-56 overflow-hidden flex flex-col animate-fade-in">
+                          <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-[#F8F4EC]/30">
+                            <Search className="h-4 w-4 text-[#7A1F2B]" />
+                            <input
+                              type="text"
+                              placeholder={`Search tehsils in ${filterDistrict}...`}
+                              value={filterTehsilSearch}
+                              onChange={(e) => setFilterTehsilSearch(e.target.value)}
+                              className="w-full text-[11px] bg-transparent border-none outline-none py-1 text-gray-800"
+                              autoFocus
+                            />
+                          </div>
+
+                          <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-40">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilterTehsil('All');
+                                setFilterTehsilSearch('');
+                                setIsFilterTehsilOpen(false);
+                              }}
+                              className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer"
+                            >
+                              <strong className="text-[#7A1F2B]">All Tehsils (सभी तहसीलें)</strong>
+                              {filterTehsil === 'All' && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                            </button>
+
+                            {locationDb.getTehsilsByDistrictName(filterDistrict)
+                              .filter(t => t.name.toLowerCase().includes(filterTehsilSearch.toLowerCase()))
+                              .map((t) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setFilterTehsil(t.name);
+                                    setFilterVillage('All');
+                                    setFilterTehsilSearch('');
+                                    setIsFilterTehsilOpen(false);
+                                  }}
+                                  className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer"
+                                >
+                                  <span>{t.name}</span>
+                                  {filterTehsil === t.name && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                                </button>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Village selection */}
+                    {/* Village selection linked dynamically */}
                     <div className="space-y-2">
                        <label className="font-bold text-[#7A1F2B] block">Native Village (मूल गाँव)</label>
                        <input 
                          type="text" 
+                         disabled={filterTehsil === 'All'}
                          value={filterVillage === 'All' ? '' : filterVillage} 
                          onChange={(e) => setFilterVillage(e.target.value || 'All')}
-                         placeholder="e.g. Salawas, Mandore, Banar"
-                         className="w-full p-3 border border-gray-300 rounded focus:outline-[#7A1F2B]"
+                         placeholder={
+                           filterTehsil === 'All' 
+                             ? "Please select a tehsil first..." 
+                             : "Type Native Village name..."
+                         }
+                         className={`w-full p-3 border border-gray-300 rounded-xl focus:outline-[#7A1F2B] text-xs ${
+                           filterTehsil === 'All' ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''
+                         }`}
                        />
                     </div>
 
-                    {/* Education Degree Level */}
-                    <div className="space-y-2">
-                      <label className="font-bold text-[#7A1F2B] block">Education Degree Level</label>
-                      <select 
-                        value={filterEducation} 
-                        onChange={(e) => setFilterEducation(e.target.value)}
-                        className="w-full p-3 border border-gray-300 bg-white rounded focus:outline-[#7A1F2B]"
-                      >
-                        <option value="All">All Education Backgrounds</option>
-                        <option value="B.Tech">B.Tech / B.E. / Engineering</option>
-                        <option value="M.Tech">M.Tech / ME</option>
-                        <option value="MBA">MBA / Business Management</option>
-                        <option value="MCA">MCA / BCA / IT Graduate</option>
-                        <option value="Doctor">Doctor / MD / MBBS</option>
-                        <option value="Graduate">Any Graduate / Degree Holder</option>
-                      </select>
-                    </div>
+                     {/* Education Degree Level with searchable dropdown */}
+                     <div className="space-y-2 relative">
+                       <label className="font-bold text-[#7A1F2B] block">Education Background / Degree</label>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setIsFilterEduOpen(!isFilterEduOpen);
+                           setIsFilterOccOpen(false);
+                           setIsFilterIncomeOpen(false);
+                           setIsFilterDistrictOpen(false);
+                         }}
+                         className="w-full text-left text-xs p-3 border border-gray-300 bg-white rounded-xl focus:outline-none flex justify-between items-center cursor-pointer shadow-sm hover:border-[#7A1F2B]/40"
+                       >
+                         <span className="font-semibold text-gray-800">
+                           {filterEducation === 'All' ? "All Education Backgrounds" : filterEducation}
+                         </span>
+                         <ChevronDown className="h-4 w-4 text-gray-400 font-sans" />
+                       </button>
 
-                    {/* Professional Occupation Search */}
-                    <div className="space-y-2">
-                      <label className="font-bold text-[#7A1F2B] block">Professional Occupation Search</label>
-                      <select 
-                        value={filterOccupation} 
-                        onChange={(e) => setFilterOccupation(e.target.value)}
-                        className="w-full p-3 border border-gray-300 bg-white rounded focus:outline-[#7A1F2B]"
-                      >
-                        <option value="All">All Occupations</option>
-                        <option value="Engineer">Software Engineer / IT</option>
-                        <option value="Doctor">Doctor / MD / Pediatrician</option>
-                        <option value="Teacher">Government Secondary Teacher</option>
-                        <option value="CA">Chartered Accountant (CA)</option>
-                        <option value="Bank">Investment Banker</option>
-                      </select>
-                    </div>
+                       {isFilterEduOpen && (
+                         <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-56 overflow-hidden flex flex-col animate-fade-in">
+                           <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-[#F8F4EC]/30">
+                             <Search className="h-4 w-4 text-[#7A1F2B]" />
+                             <input
+                               type="text"
+                               placeholder="Search education (e.g. ITI, BTech, MA)..."
+                               value={filterEduSearch}
+                               onChange={(e) => setFilterEduSearch(e.target.value)}
+                               className="w-full text-[11px] bg-transparent border-none outline-none py-1 text-gray-800"
+                               autoFocus
+                             />
+                           </div>
+                           
+                           <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-40">
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 setFilterEducation('All');
+                                 setFilterEduSearch('');
+                                 setIsFilterEduOpen(false);
+                               }}
+                               className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                             >
+                               <strong className="text-[#7A1F2B]">All Backgrounds (सभी)</strong>
+                               {filterEducation === 'All' && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                             </button>
 
-                    {/* Expected Income Range */}
-                    <div className="space-y-2">
-                      <label className="font-bold text-[#7A1F2B] block">Expected Income Range</label>
-                      <select 
-                        value={filterIncome} 
-                        onChange={(e) => setFilterIncome(e.target.value)}
-                        className="w-full p-3 border border-gray-300 bg-white rounded focus:outline-[#7A1F2B]"
-                      >
-                        <option value="All">All Incomes</option>
-                        <option value="Lakhs">Earners only (₹3 Lakhs+)</option>
-                        <option value="10 Lakhs">High Earners (₹10 Lakhs+)</option>
-                        <option value="15 Lakhs">Elite Earners (₹15 Lakhs+)</option>
-                        <option value="25 Lakhs">Affluent Earners (₹25 Lakhs+)</option>
-                      </select>
-                    </div>
+                             {EDUCATION_OPTIONS
+                               .filter(e => e.toLowerCase().includes(filterEduSearch.toLowerCase()))
+                               .map((eduName) => (
+                                 <button
+                                   key={eduName}
+                                   type="button"
+                                   onClick={() => {
+                                     setFilterEducation(eduName);
+                                     setFilterEduSearch('');
+                                     setIsFilterEduOpen(false);
+                                   }}
+                                   className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                                 >
+                                   <span>{eduName}</span>
+                                   {filterEducation === eduName && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                                 </button>
+                               ))
+                             }
+                           </div>
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Professional Occupation Search with searchable dropdown */}
+                     <div className="space-y-2 relative">
+                       <label className="font-bold text-[#7A1F2B] block">Professional / Rural Occupation Search</label>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setIsFilterOccOpen(!isFilterOccOpen);
+                           setIsFilterEduOpen(false);
+                           setIsFilterIncomeOpen(false);
+                           setIsFilterDistrictOpen(false);
+                         }}
+                         className="w-full text-left text-xs p-3 border border-gray-300 bg-white rounded-xl focus:outline-none flex justify-between items-center cursor-pointer shadow-sm hover:border-[#7A1F2B]/40"
+                       >
+                         <span className="font-semibold text-gray-800 truncate block max-w-[90%]">
+                           {filterOccupation === 'All' ? "All Occupations" : filterOccupation}
+                         </span>
+                         <ChevronDown className="h-4 w-4 text-gray-400" />
+                       </button>
+
+                       {isFilterOccOpen && (
+                         <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-56 overflow-hidden flex flex-col animate-fade-in">
+                           <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-[#F8F4EC]/30">
+                             <Search className="h-4 w-4 text-[#7A1F2B]" />
+                             <input
+                               type="text"
+                               placeholder="Search occupation (e.g. Farmer, Carpenter, Teacher)..."
+                               value={filterOccSearch}
+                               onChange={(e) => setFilterOccSearch(e.target.value)}
+                               className="w-full text-[11px] bg-transparent border-none outline-none py-1 text-gray-800"
+                               autoFocus
+                             />
+                           </div>
+                           
+                           <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-40">
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 setFilterOccupation('All');
+                                 setFilterOccSearch('');
+                                 setIsFilterOccOpen(false);
+                               }}
+                               className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                             >
+                               <strong className="text-[#7A1F2B]">All Occupations (सभी कार्यक्षेत्र)</strong>
+                               {filterOccupation === 'All' && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                             </button>
+
+                             {OCCUPATION_OPTIONS
+                               .filter(o => o.toLowerCase().includes(filterOccSearch.toLowerCase()))
+                               .map((occName) => (
+                                 <button
+                                   key={occName}
+                                   type="button"
+                                   onClick={() => {
+                                     setFilterOccupation(occName);
+                                     setFilterOccSearch('');
+                                     setIsFilterOccOpen(false);
+                                   }}
+                                   className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                                 >
+                                   <span>{occName}</span>
+                                   {filterOccupation === occName && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                                 </button>
+                               ))
+                             }
+                           </div>
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Expected Income Range selector */}
+                     <div className="space-y-2 relative">
+                       <label className="font-bold text-[#7A1F2B] block">Expected Income Range</label>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setIsFilterIncomeOpen(!isFilterIncomeOpen);
+                           setIsFilterEduOpen(false);
+                           setIsFilterOccOpen(false);
+                           setIsFilterDistrictOpen(false);
+                         }}
+                         className="w-full text-left text-xs p-3 border border-gray-300 bg-white rounded-xl focus:outline-none flex justify-between items-center cursor-pointer shadow-sm hover:border-[#7A1F2B]/40"
+                       >
+                         <span className="font-semibold text-gray-800">
+                           {filterIncome === 'All' ? "All Incomes" : filterIncome}
+                         </span>
+                         <ChevronDown className="h-4 w-4 text-gray-400" />
+                       </button>
+
+                       {isFilterIncomeOpen && (
+                         <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-56 overflow-y-auto py-1 animate-fade-in divide-y divide-gray-50">
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setFilterIncome('All');
+                               setIsFilterIncomeOpen(false);
+                             }}
+                             className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                           >
+                             <strong className="text-[#7A1F2B]">All Incomes (सभी आय वर्ग)</strong>
+                             {filterIncome === 'All' && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                           </button>
+
+                           {INCOME_OPTIONS.map((incRange) => (
+                             <button
+                               key={incRange}
+                               type="button"
+                               onClick={() => {
+                                 setFilterIncome(incRange);
+                                 setIsFilterIncomeOpen(false);
+                               }}
+                               className="w-full text-left text-xs px-4 py-2 hover:bg-[#7A1F2B]/5 text-gray-700 flex justify-between items-center cursor-pointer font-sans"
+                             >
+                               <span>{incRange}</span>
+                               {filterIncome === incRange && <Check className="h-3.5 w-3.5 text-[#7A1F2B]" />}
+                             </button>
+                           ))}
+                         </div>
+                       )}
+                     </div>
 
                     {/* Marital Status Select */}
                     <div className="space-y-2">
@@ -1159,11 +1577,14 @@ export default function App() {
                         <div className="border-b border-gray-100 pb-3">
                           <span className="text-[#B8860B] font-mono font-bold uppercase tracking-widest text-[9px]">Genuinely Registered profile</span>
                           <h2 className="font-cinzel text-xl font-bold text-[#7A1F2B]">{currentDetailProfile.name}</h2>
-                          <p className="text-xs text-gray-500 font-serif">Registered by Parent • {currentDetailProfile.maritalStatus}</p>
+                          <p className="text-xs text-gray-500 font-serif">Registered by {currentDetailProfile.managedBy || 'Parent'} • {currentDetailProfile.maritalStatus}</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 font-sans text-gray-700">
-                          <div><strong>Gotra:</strong> {currentDetailProfile.gotra}</div>
+                          <div><strong>Own Gotra (Paternal):</strong> {currentDetailProfile.ownGotra || currentDetailProfile.gotra}</div>
+                          <div><strong>Mother's Gotra:</strong> {currentDetailProfile.motherGotra || 'Sankhla'}</div>
+                          <div><strong>Dadi's Gotra:</strong> {currentDetailProfile.dadiGotra || 'Tak'}</div>
+                          <div><strong>Nani's Gotra:</strong> {currentDetailProfile.naniGotra || 'Deora'}</div>
                           <div><strong>Age / Gender:</strong> {currentDetailProfile.age} Yrs • {currentDetailProfile.gender}</div>
                           <div><strong>Date of Birth:</strong> {currentDetailProfile.dob}</div>
                           <div><strong>Marital Status:</strong> {currentDetailProfile.maritalStatus}</div>
@@ -1177,6 +1598,90 @@ export default function App() {
                           <div><strong>Village Name:</strong> {currentDetailProfile.village}</div>
                         </div>
                       </div>
+
+                      {/* Community Compatibility Card */}
+                      {compatibilityResults && (
+                        <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-royal space-y-4 text-xs md:text-sm">
+                          <h3 className="font-cinzel text-xs font-bold text-[#7A1F2B] uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-1.5">
+                            <Sparkles className="h-4 w-4 text-[#D4AF37]" /> Traditional Mali Samaj Gotra Compatibility Check
+                          </h3>
+                          <p className="text-[11px] text-gray-500 italic font-serif">
+                            Comparative analysis against your saved maternal & paternal ancestral lines:
+                          </p>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            {/* Own Gotra Check */}
+                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                              compatibilityResults.isOwnGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
+                            }`}>
+                              <div>
+                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">1. Own Gotra ({compatibilityResults.ownGotraVal})</span>
+                                {compatibilityResults.isOwnGotraMatch ? '✗ Collides with your ancestry' : '✓ Own Gotra Different'}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isOwnGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
+                                {compatibilityResults.isOwnGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
+                              </span>
+                            </div>
+
+                            {/* Mother Gotra Check */}
+                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                              compatibilityResults.isMotherGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
+                            }`}>
+                              <div>
+                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">2. Mother Gotra ({compatibilityResults.motherGotraVal})</span>
+                                {compatibilityResults.isMotherGotraMatch ? '✗ Collides with your ancestry' : '✓ Mother Gotra Different'}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isMotherGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
+                                {compatibilityResults.isMotherGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
+                              </span>
+                            </div>
+
+                            {/* Dadi Gotra Check */}
+                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                              compatibilityResults.isDadiGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
+                            }`}>
+                              <div>
+                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">3. Dadi Gotra ({compatibilityResults.dadiGotraVal})</span>
+                                {compatibilityResults.isDadiGotraMatch ? '✗ Collides with your ancestry' : '✓ Dadi Gotra Different'}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isDadiGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
+                                {compatibilityResults.isDadiGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
+                              </span>
+                            </div>
+
+                            {/* Nani Gotra Check */}
+                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                              compatibilityResults.isNaniGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
+                            }`}>
+                              <div>
+                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">4. Nani Gotra ({compatibilityResults.naniGotraVal})</span>
+                                {compatibilityResults.isNaniGotraMatch ? '✗ Collides with your ancestry' : '✓ Nani Gotra Different'}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isNaniGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
+                                {compatibilityResults.isNaniGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {compatibilityResults.hasGotraMatch ? (
+                            <div className="p-4 bg-amber-50 rounded-xl border border-amber-250 text-amber-950 flex gap-2.5 text-[11px] leading-relaxed">
+                              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                              <div>
+                                <strong className="block font-semibold">Please verify with family elders before proceeding (गोत्र मिलान चेतावनी):</strong>
+                                One or more of this candidate's ancestral gotras matches yours. Traditional Rajasthani Mali rules advise verification prior to alliances to preserve health & lineage laws.
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950 flex gap-2.5 text-[11px] leading-relaxed">
+                              <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                              <div>
+                                <strong className="block font-semibold">Perfect Clan Compatibility (सभी गोत्र अनुकूल):</strong>
+                                No overlapping blood relation gotras detected across all lines (Own, Mother, Dadi, Nani). This alliance satisfies community health guidelines.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Education & Employment */}
                       <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-royal space-y-4">
@@ -1213,11 +1718,11 @@ export default function App() {
                       </div>
 
                       {/* Action system */}
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-3">
                         <button 
                           onClick={() => sendInterestConnection(currentDetailProfile.id)}
                           disabled={currentDetailProfile.interestStatus === 'sent'}
-                          className={`flex-1 py-3 font-cinzel font-bold text-xs rounded-xl shadow-royal transition-all cursor-pointer ${
+                          className={`flex-1 min-w-[200px] py-3 font-cinzel font-bold text-xs rounded-xl shadow-royal transition-all cursor-pointer ${
                             currentDetailProfile.interestStatus === 'sent'
                               ? 'bg-gray-100 text-gray-400 border border-gray-200 text-center'
                               : 'bg-[#7A1F2B] hover:bg-[#922a38] text-white border border-[#D4AF37]'
@@ -1227,8 +1732,16 @@ export default function App() {
                         </button>
 
                         <button 
+                          onClick={() => handleBlockProfile(currentDetailProfile.id)}
+                          className="bg-gray-150 hover:bg-slate-200 text-slate-800 py-3 px-6 rounded-xl text-xs font-bold font-cinzel cursor-pointer"
+                          title="Block this profile so it is hidden from your browse and searches"
+                        >
+                          Block Profile
+                        </button>
+
+                        <button 
                           onClick={() => { setShowReportModal(true); setReportSuccess(false); }}
-                          className="bg-gray-100 hover:bg-red-50 text-red-700 py-3 px-6 rounded-xl text-xs font-bold font-cinzel"
+                          className="bg-gray-100 hover:bg-red-50 text-red-700 py-3 px-6 rounded-xl text-xs font-bold font-cinzel cursor-pointer"
                         >
                           Report Profile
                         </button>
@@ -2105,8 +2618,18 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-2 justify-end pt-3">
-                  <button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
-                  <button onClick={() => setReportSuccess(true)} className="px-4 py-2 bg-[#7A1F2B] text-white rounded">Submit Complaint</button>
+                  <button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-100 rounded cursor-pointer">Cancel</button>
+                  <button 
+                    onClick={() => {
+                      if (currentDetailProfile) {
+                        handleReportProfile(currentDetailProfile.id, reportReason || "Gotra mismatch / Incorrect narrative");
+                      }
+                      setReportSuccess(true);
+                    }} 
+                    className="px-4 py-2 bg-[#7A1F2B] hover:bg-[#922a38] text-white rounded font-bold font-cinzel cursor-pointer"
+                  >
+                    Submit Complaint
+                  </button>
                 </div>
               </div>
             )}
@@ -2128,6 +2651,17 @@ export default function App() {
           © 2226 - 2026 Rajasthan Mali Bandhan Inc. All marriage bonds validated under local Rajasthan culture.
         </p>
       </footer>
+
+      {/* 5. FLOATING PREMIUM TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#7A1F2B] border-2 border-[#D4AF37] text-white p-4 rounded-xl shadow-2xl flex items-start gap-2.5 max-w-md animate-fade-in">
+          <Sparkles className="h-5 w-5 text-[#D4AF37] shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-0.5">
+            <p className="font-cinzel text-[10px] font-bold text-[#D4AF37] tracking-wider uppercase">Matrimonial System Dispatch</p>
+            <p className="text-[11px] text-gray-100 font-sans leading-relaxed">{toastMessage}</p>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { 
   User, MapPin, Briefcase, Users, Heart, Sparkles, Image, CheckCircle, Eye, Star, ShieldCheck, ChevronRight, ChevronLeft, Upload, FileText
 } from 'lucide-react';
+import SearchableGotraDropdown from './SearchableGotraDropdown';
+import SearchableLocationSelector from './SearchableLocationSelector';
+import CareerSection from './CareerSection';
 
 interface WizardProps {
   onComplete: (completedProfileData: any) => void;
@@ -17,19 +20,25 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
   const [dob, setDob] = useState(initialData?.dob || '1998-05-20');
   const [mobile, setMobile] = useState(initialData?.mobile || '+91 94142 68241');
   const [email, setEmail] = useState(initialData?.email || 'kuldeep.saini88@gmail.com');
+  const [managedBy, setManagedBy] = useState<'Self' | 'Father' | 'Mother' | 'Brother' | 'Sister' | 'Relative'>(initialData?.managedBy || 'Father');
 
   // Step 2: Community
   const [gotra, setGotra] = useState('Gehlot');
+  const [motherGotra, setMotherGotra] = useState('Sankhla');
+  const [dadiGotra, setDadiGotra] = useState('Tak');
+  const [naniGotra, setNaniGotra] = useState('Deora');
   const [district, setDistrict] = useState('Jodhpur');
   const [tehsil, setTehsil] = useState('Luni');
   const [village, setVillage] = useState('Salawas');
 
   // Step 3: Education & Professional
-  const [education, setEducation] = useState('B.Tech in Mechanical Engineering');
-  const [college, setCollege] = useState('IIT Kharagpur');
-  const [occupation, setOccupation] = useState('Senior Design Engineer');
-  const [company, setCompany] = useState('Tata Motors');
-  const [income, setIncome] = useState('₹16 Lakhs / Annum');
+  const [education, setEducation] = useState('BTech');
+  const [college, setCollege] = useState('MNIT Jaipur');
+  const [occupation, setOccupation] = useState('Software Developer');
+  const [company, setCompany] = useState('Saini Software Solutions');
+  const [income, setIncome] = useState('₹5-8 Lakh');
+  const [workType, setWorkType] = useState('Private');
+  const [eduError, setEduError] = useState('');
 
   // Step 4: Family Details
   const [fatherName, setFatherName] = useState('Mr. Devaram Gehlot');
@@ -76,6 +85,21 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
   ];
 
   const handleNext = () => {
+    if (step === 3) {
+      if (!education || education.trim() === '') {
+        setEduError('Educational qualification is required. Please select or enter your highest education.');
+        return;
+      }
+      if (!occupation || occupation.trim() === '') {
+        setEduError('Occupation/Profession is required. Please select your occupation category or type custom.');
+        return;
+      }
+      if (!income || income.trim() === '') {
+        setEduError('Annual Personal/Family Income is required. Please select your income.');
+        return;
+      }
+      setEduError('');
+    }
     if (step < 10) {
       setStep(step + 1);
     }
@@ -108,6 +132,10 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
       mobile: mobile,
       email: email,
       gotra: gotra,
+      ownGotra: gotra,
+      motherGotra: motherGotra,
+      dadiGotra: dadiGotra,
+      naniGotra: naniGotra,
       district: district,
       tehsil: tehsil,
       village: village,
@@ -116,6 +144,7 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
       occupation: occupation,
       company: company,
       income: income,
+      workType: workType,
       fatherName: fatherName,
       motherName: motherName,
       familyType: familyType,
@@ -133,7 +162,13 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
       verified: isSelfieCaptured && isIdUploaded,
       premium: false,
       isShortlisted: false,
-      interestStatus: 'none' as const
+      interestStatus: 'none' as const,
+      // Additional requested attributes
+      managedBy: managedBy,
+      isCommunityVerified: true,
+      profileCompletion: 100,
+      lastActive: "Active now",
+      isOnline: true
     };
 
     onComplete(completeProfileData);
@@ -251,7 +286,7 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
                 />
               </div>
 
-              <div className="space-y-1 md:col-span-2">
+              <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-700 block">Email Address (For Secure Notifications)</label>
                 <input 
                   type="email" 
@@ -261,6 +296,22 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
                   placeholder="e.g. ward.mali@gmail.com"
                 />
               </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700 block">Profile Managed By</label>
+                <select 
+                  value={managedBy}
+                  onChange={(e) => setManagedBy(e.target.value as any)}
+                  className="w-full text-xs p-3 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B]"
+                >
+                  <option value="Self">Self (Bride/Groom themselves)</option>
+                  <option value="Father">Father</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Brother">Brother</option>
+                  <option value="Sister">Sister</option>
+                  <option value="Relative">Relative / Guardian</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
@@ -268,68 +319,54 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
         {/* Step 2: Community details */}
         {step === 2 && (
           <div className="space-y-6">
+            <div className="bg-amber-50/50 p-4 rounded-xl border border-[#D4AF37]/25 flex items-start gap-2.5 text-[11px] text-[#7A1F2B]">
+              <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-[#D4AF37]" />
+              <div>
+                <strong className="block font-cinzel">Traditional Rajasthan Mali Samaj Gotra Avoidance System</strong>
+                To respect the community marriage laws, please record four distinct gotra lines (Own, Mother, Dadi, Nani). Our automated compatibly system uses these during active searches.
+              </div>
+            </div>
+
             <h3 className="font-cinzel text-base font-bold text-[#7A1F2B] border-b border-gray-100 pb-2">Step 2: Mali Samaj Clan & Location Context</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Gotra (Goliya, Gehlot, Saini, Tak etc.)</label>
-                <select 
-                  value={gotra} 
-                  onChange={(e) => setGotra(e.target.value)}
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B]"
-                >
-                  <option>Gehlot</option>
-                  <option>Saini</option>
-                  <option>Kachhawaha</option>
-                  <option>Solanki</option>
-                  <option>Tak</option>
-                  <option>Tanwar</option>
-                  <option>Sankhla</option>
-                  <option>Bhati</option>
-                  <option>Panwar</option>
-                  <option>Deora</option>
-                  <option>Singhal</option>
-                </select>
-              </div>
+              
+              <SearchableGotraDropdown 
+                label="1. Own Gotra (Paternal side)" 
+                value={gotra} 
+                onChange={setGotra} 
+                idSuffix="own"
+              />
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">District (Rajasthan region)</label>
-                <select 
-                  value={district} 
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B]"
-                >
-                  <option>Jodhpur</option>
-                  <option>Jaipur</option>
-                  <option>Udaipur</option>
-                  <option>Pali</option>
-                  <option>Ajmer</option>
-                  <option>Bikaner</option>
-                  <option>Kota</option>
-                  <option>Sikar</option>
-                  <option>Nagaur</option>
-                  <option>Jhunjhunu</option>
-                </select>
-              </div>
+              <SearchableGotraDropdown 
+                label="2. Mother's Gotra" 
+                value={motherGotra} 
+                onChange={setMotherGotra} 
+                idSuffix="mother"
+              />
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Tehsil Name</label>
-                <input 
-                  type="text" 
-                  value={tehsil}
-                  onChange={(e) => setTehsil(e.target.value)}
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]" 
-                  placeholder="e.g. Bilara, Luni"
-                />
-              </div>
+              <SearchableGotraDropdown 
+                label="3. Grandmother's (Dadi) Gotra" 
+                value={dadiGotra} 
+                onChange={setDadiGotra} 
+                idSuffix="dadi"
+              />
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Native Village Name (Mool Niwas)</label>
-                <input 
-                  type="text" 
-                  value={village}
-                  onChange={(e) => setVillage(e.target.value)}
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]" 
-                  placeholder="e.g. Salawas"
+              <SearchableGotraDropdown 
+                label="4. Maternal Grandmother's (Nani) Gotra" 
+                value={naniGotra} 
+                onChange={setNaniGotra} 
+                idSuffix="nani"
+              />
+
+              <div className="col-span-1 md:col-span-2 mt-4">
+                <SearchableLocationSelector
+                  district={district}
+                  onDistrictChange={setDistrict}
+                  tehsil={tehsil}
+                  onTehsilChange={setTehsil}
+                  village={village}
+                  onVillageChange={setVillage}
+                  inlineLayout={true}
                 />
               </div>
             </div>
@@ -338,69 +375,35 @@ export default function Wizard({ onComplete, initialData }: WizardProps) {
 
         {/* Step 3: Education & Career */}
         {step === 3 && (
-          <div className="space-y-6">
-            <h3 className="font-cinzel text-base font-bold text-[#7A1F2B] border-b border-gray-100 pb-2">Step 3: Education, Occupation & Annual Income</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Highest Education Degree</label>
-                <input 
-                  type="text" 
-                  value={education} 
-                  onChange={(e) => setEducation(e.target.value)}
-                  placeholder="e.g. B.Tech / MBA / MBBS / IAS"
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">College / University Name</label>
-                <input 
-                  type="text" 
-                  value={college} 
-                  onChange={(e) => setCollege(e.target.value)}
-                  placeholder="e.g. MNIT Jaipur, JNVU Jodhpur"
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Occupation / Profession Designation</label>
-                <input 
-                  type="text" 
-                  value={occupation} 
-                  onChange={(e) => setOccupation(e.target.value)}
-                  placeholder="e.g. Software Consultant, Government Teacher"
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-700 block">Current Employer Company Name</label>
-                <input 
-                  type="text" 
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="e.g. TCS, Gov of Rajasthan Sec School"
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-[#F8F4EC]/10 focus:outline-[#7A1F2B]"
-                />
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-semibold text-gray-700 block">Annual Family/Personal Income Group</label>
-                <select 
-                  value={income} 
-                  onChange={(e) => setIncome(e.target.value)}
-                  className="w-full text-xs p-3 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B]"
-                >
-                  <option>₹3 Lakhs to 5 Lakhs / Annum</option>
-                  <option>₹5 Lakhs to 8 Lakhs / Annum</option>
-                  <option>₹8 Lakhs to 12 Lakhs / Annum</option>
-                  <option>₹12 Lakhs to 18 Lakhs / Annum</option>
-                  <option>₹18 Lakhs to 25 Lakhs / Annum</option>
-                  <option>₹25 Lakhs+ / Annum</option>
-                </select>
-              </div>
-            </div>
+          <div className="space-y-6 animate-fade-in">
+            <h3 className="font-cinzel text-base font-bold text-[#7A1F2B] border-b border-gray-100 pb-2 flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-[#7A1F2B]" /> Step 3: Education, Occupation & Annual Income
+            </h3>
+            
+            <CareerSection
+              education={education}
+              onEducationChange={(val) => {
+                setEducation(val);
+                if (eduError) setEduError('');
+              }}
+              college={college}
+              onCollegeChange={setCollege}
+              occupation={occupation}
+              onOccupationChange={(val) => {
+                setOccupation(val);
+                if (eduError) setEduError('');
+              }}
+              company={company}
+              onCompanyChange={setCompany}
+              income={income}
+              onIncomeChange={(val) => {
+                setIncome(val);
+                if (eduError) setEduError('');
+              }}
+              workType={workType}
+              onWorkTypeChange={setWorkType}
+              validationError={eduError || undefined}
+            />
           </div>
         )}
 
