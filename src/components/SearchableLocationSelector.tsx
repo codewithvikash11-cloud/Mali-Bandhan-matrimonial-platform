@@ -36,8 +36,17 @@ export default function SearchableLocationSelector({
     return locationDb.getTehsilsByDistrictName(district);
   }, [district]);
 
+  // Village Dropdown State
+  const [isVillageOpen, setIsVillageOpen] = useState(false);
+  const [villageSearch, setVillageSearch] = useState("");
+  const villages = useMemo(() => {
+    if (!tehsil) return [];
+    return locationDb.getVillagesByTehsilName(tehsil);
+  }, [tehsil]);
+
   const districtRef = useRef<HTMLDivElement>(null);
   const tehsilRef = useRef<HTMLDivElement>(null);
+  const villageRef = useRef<HTMLDivElement>(null);
 
   // Click outside listener for dropdowns
   useEffect(() => {
@@ -47,6 +56,9 @@ export default function SearchableLocationSelector({
       }
       if (tehsilRef.current && !tehsilRef.current.contains(event.target as Node)) {
         setIsTehsilOpen(false);
+      }
+      if (villageRef.current && !villageRef.current.contains(event.target as Node)) {
+        setIsVillageOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -67,6 +79,13 @@ export default function SearchableLocationSelector({
     return tehsils.filter(t => t.name.toLowerCase().includes(query));
   }, [tehsilSearch, tehsils]);
 
+  // Filter villages based on search
+  const filteredVillages = useMemo(() => {
+    if (!villageSearch.trim()) return villages;
+    const query = villageSearch.toLowerCase();
+    return villages.filter(v => v.toLowerCase().includes(query));
+  }, [villageSearch, villages]);
+
   // When district changes, clear or reset tehsil and native village
   const handleDistrictSelect = (selectedName: string) => {
     onDistrictChange(selectedName);
@@ -78,15 +97,15 @@ export default function SearchableLocationSelector({
 
   const handleTehsilSelect = (selectedName: string) => {
     onTehsilChange(selectedName);
+    onVillageChange(""); // Reset village hierarchy
     setTehsilSearch("");
     setIsTehsilOpen(false);
   };
 
-  // Add custom Tehsil if not found in table query
-  const handleAddCustomTehsil = () => {
-    if (!tehsilSearch.trim() || !district) return;
-    const added = locationDb.insertTehsil(district, tehsilSearch.trim());
-    handleTehsilSelect(added.name);
+  const handleVillageSelect = (selectedName: string) => {
+    onVillageChange(selectedName);
+    setVillageSearch("");
+    setIsVillageOpen(false);
   };
 
   return (
@@ -189,19 +208,10 @@ export default function SearchableLocationSelector({
 
             <div className="overflow-y-auto flex-1 py-1 divide-y divide-gray-50 max-h-48">
               {filteredTehsils.length === 0 ? (
-                <div className="p-3 text-center">
-                  <p className="text-[11px] text-gray-400 italic mb-2">
-                    Tehsil "{tehsilSearch}" not in {district} table.
+                <div className="p-4 text-center space-y-1">
+                  <p className="text-[11px] text-gray-400 italic">
+                    No matching tehsil found. Please contact support.
                   </p>
-                  {tehsilSearch.trim() && (
-                    <button
-                      type="button"
-                      onClick={handleAddCustomTehsil}
-                      className="inline-flex items-center gap-1 bg-[#7A1F2B] hover:bg-[#922a38] text-white text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-lg shadow"
-                    >
-                      <Sparkles className="h-3 w-3 text-[#D4AF37]" /> Add "{tehsilSearch}" to DB
-                    </button>
-                  )}
                 </div>
               ) : (
                 filteredTehsils.map((t) => (
@@ -221,21 +231,90 @@ export default function SearchableLocationSelector({
         )}
       </div>
 
-      {/* 3. NATIVE VILLAGE SELECTION */}
-      <div className="space-y-1">
-        <label className="text-xs font-semibold text-gray-700 block text-left">
-          Native Village Name (मूल गाँव / ढाणी)
+      {/* 3. NATIVE VILLAGE SELECTION WITH SEARCHABLE DROP-DOWN */}
+      <div className="space-y-1 relative" ref={villageRef}>
+        <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 justify-between">
+          <span>Native Village Name (मूल गाँव / ढाणी) *</span>
+          {tehsil && (
+            <span className="text-[11px] text-[#7A1F2B] font-sans font-medium">
+              Popular Mali Samaj Hubs
+            </span>
+          )}
         </label>
-        <input
-          type="text"
+        
+        <button
+          type="button"
           disabled={!tehsil}
-          value={village}
-          onChange={(e) => onVillageChange(e.target.value)}
-          placeholder={!tehsil ? "Please select a tehsil first..." : "e.g. Bilara, Salawas, Mandore"}
-          className={`w-full text-xs p-3 border border-gray-300 rounded-xl bg-white focus:outline-[#7A1F2B] ${
-            !tehsil ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''
+          onClick={() => setIsVillageOpen(!isVillageOpen)}
+          className={`w-full text-left text-xs p-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#7A1F2B] flex justify-between items-center transition-all duration-200 ${
+            !tehsil ? 'opacity-60 cursor-not-allowed bg-gray-50' : 'cursor-pointer shadow-sm hover:border-[#7A1F2B]/40'
           }`}
-        />
+        >
+          <span className={village ? "text-gray-800 font-semibold" : "text-gray-400"}>
+            {village ? `${village}` : !tehsil ? "Please select a tehsil first..." : "Select or search Village (e.g. Salawas, Borunda)..."}
+          </span>
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isVillageOpen ? 'transform rotate-180' : ''}`} />
+        </button>
+
+        {isVillageOpen && tehsil && (
+          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-royal max-h-60 overflow-hidden flex flex-col animate-fade-in">
+            {/* Search Input Bar */}
+            <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-[#F8F4EC]/30">
+              <Search className="h-4 w-4 text-[#7A1F2B]" />
+              <input
+                type="text"
+                placeholder={`Search villages in ${tehsil}...`}
+                value={villageSearch}
+                onChange={(e) => setVillageSearch(e.target.value)}
+                className="w-full text-xs bg-transparent border-none outline-none py-1 text-gray-800"
+                autoFocus
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 py-1 divide-y divide-gray-50 max-h-48">
+              {filteredVillages.length === 0 ? (
+                <div className="p-4 text-center space-y-1">
+                  <p className="text-[11px] text-gray-500 italic">
+                    No matching village found. Please contact support.
+                  </p>
+                </div>
+              ) : (
+                filteredVillages.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => handleVillageSelect(v)}
+                    className="w-full text-left text-xs px-4 py-2 flex items-center justify-between hover:bg-[#7A1F2B]/5 text-gray-700 transition-colors cursor-pointer"
+                  >
+                    <span className="font-sans font-medium">{v}</span>
+                    {village === v && <Check className="h-3.5 w-3.5 text-[#7A1F2B] stroke-[3px]" />}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Popular Quick Suggestions below the dropdown bar */}
+        {tehsil && villages.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2 animate-fade-in">
+            <span className="text-[10px] text-gray-500 font-sans">Quick Click:</span>
+            {villages.slice(0, 4).map((v) => (
+              <button
+                type="button"
+                key={v}
+                onClick={() => handleVillageSelect(v)}
+                className={`text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+                  village === v
+                    ? 'bg-[#7A1F2B]/10 border-[#7A1F2B] text-[#7A1F2B] font-bold shadow-sm'
+                    : 'bg-[#F8F4EC]/60 border-amber-900/10 text-slate-600 hover:bg-white hover:border-[#7A1F2B]/30 cursor-pointer'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>

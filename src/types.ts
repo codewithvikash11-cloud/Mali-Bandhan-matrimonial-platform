@@ -24,8 +24,9 @@ export interface Profile {
   familyType: 'Joint' | 'Nuclear';
   brothers: string;
   sisters: string;
-  maritalStatus: 'Never Married' | 'Divorced' | 'Widowed' | 'Awaiting Divorce';
+  maritalStatus: 'Never Married' | 'Divorced' | 'Widowed' | 'Widow' | 'Widower' | 'Awaiting Divorce';
   divorceStatus?: string;
+  divorceYear?: string;
   childrenDetails?: string;
   preferredAge: string;
   preferredDistrict: string;
@@ -44,10 +45,40 @@ export interface Profile {
   managedBy?: 'Self' | 'Father' | 'Mother' | 'Brother' | 'Sister' | 'Relative';
   isCommunityVerified?: boolean;
   profileCompletion?: number;
+  profileStrengthScore?: number;
   lastActive?: string;
   isOnline?: boolean;
   isBlocked?: boolean;
   isReported?: boolean;
+  photoPrivacyMode?: 'Visible' | 'Blur' | 'Verified Only' | 'Accepted Interest Only';
+  familyContactTiming?: string;
+  agricultureLandDetails?: string;
+  hasAgricultureLand?: boolean;
+  familyBusinessInfo?: string;
+  currentCity?: string;
+  fatherOccupation?: string;
+  motherOccupation?: string;
+  familyStatus?: 'Middle Class' | 'Upper Middle' | 'Royal/Rich' | 'Conservative High Traditional';
+  ownHouse?: 'Yes' | 'No' | 'Rented';
+  occupationCategory?: string;
+  workType?: 'Private' | 'Government' | 'Business' | 'Self Employed' | 'None';
+
+  // Lifestyle attributes
+  smokingStatus?: 'No' | 'Yes' | 'Occasionally';
+  drinkingStatus?: 'No' | 'Yes' | 'Occasionally';
+  tobaccoStatus?: 'No' | 'Yes' | 'Occasionally';
+  dietPreference?: 'Vegetarian' | 'Non-Vegetarian' | 'Eggetarian' | 'Vegan';
+  fitnessLevel?: 'Normal' | 'Athletic' | 'Gym Goer' | 'Yoga Practitioner' | 'Active';
+
+  // Personality attributes
+  nature?: string;
+  hobbies?: string[];
+  interests?: string[];
+
+  // Profile Management and Family Whatsapp/Contacts
+  familyContactPerson?: string;
+  familyWhatsApp?: string;
+  bestTimeToContact?: string;
 }
 
 export interface SuccessStory {

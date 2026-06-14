@@ -69,7 +69,7 @@ export default function MaliAssistant({ onSearchApply, profiles, onViewProfileDe
       if (textLow.includes('gotra') || textLow.includes('clan') || textLow.includes('gothra')) {
         responseText = "Mali Samaj traditionally avoids 4 Gotras (Self, Father's mother, Mother's father, and Mother's mother's father) to maintain proud lineages. I recommend using our specialized search engine where our algorithm filters the selected gotras automatically.";
       } else if (textLow.includes('membership') || textLow.includes('price') || textLow.includes('fees') || textLow.includes('gold') || textLow.includes('silver') || textLow.includes('premium')) {
-        responseText = "Upgrading unlocks verified parent contact numbers and featured search ribbons. Our plan details are instantly available in the specialized 'Plans' tab above. Platinum plan includes a dedicated relationship manager.";
+        responseText = "Upgrading unlocks verified parent contact numbers and featured search ribbons. Our plan details are instantly available in the specialized 'Plans' tab above. We offer Silver Plan (₹299/mo) and Gold Plan (₹699/3mo) with the optional Profile Verification add-on.";
       } else if (textLow.includes('verify') || textLow.includes('aadhaar') || textLow.includes('badge') || textLow.includes('trust')) {
         responseText = "Trust is paramount. A 'Samaj Verified Badge' is awarded after Aadhaar authentication and facial verification matching. Check out the 'Verification Manual' tab above for step-by-step guidance.";
       } else if (textLow.includes('write') || textLow.includes('bio') || textLow.includes('create') || textLow.includes('description') || textLow.includes('about')) {
@@ -267,11 +267,11 @@ export default function MaliAssistant({ onSearchApply, profiles, onViewProfileDe
                 </button>
                 <button 
                   onClick={() => {
-                    setInputVal("Explain differences between Gold and Platinum plans.");
+                    setInputVal("Explain differences between Silver and Gold plans.");
                   }}
                   className="bg-[#F8F4EC] hover:bg-[#D4AF37]/15 border border-[#D4AF37]/35 text-[#7A1F2B] px-2.5 py-1.5 rounded-full text-[10px] font-medium"
                 >
-                  💎 Compare Gold vs Platinum
+                  💎 Compare Silver vs Gold
                 </button>
               </div>
 
@@ -435,61 +435,47 @@ export default function MaliAssistant({ onSearchApply, profiles, onViewProfileDe
                 <p className="text-[10px] text-gray-500">Rajasthan Mali Bandhan operates under community-friendly subsidized pricing structures. Premium status directly supports physical offices.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* 1. Free */}
                 <div className="bg-white border border-gray-150 rounded-xl p-4 text-center space-y-3 hover:border-gray-350 transition-all">
-                  <span className="text-[8px] bg-gray-100 text-gray-500 font-bold px-1.5 py-0.5 rounded">BASIC</span>
-                  <h6 className="font-cinzel font-bold text-[#1F1F1F] text-xs">Mali Free</h6>
-                  <p className="text-xs font-mono font-bold text-gray-600">₹0 <span className="text-[10px] text-gray-300 font-normal">/ Life</span></p>
+                  <span className="text-[8px] bg-gray-100 text-gray-550 font-bold px-1.5 py-0.5 rounded">BASIC</span>
+                  <h6 className="font-cinzel font-bold text-[#1F1F1F] text-xs">Free Plan</h6>
+                  <p className="text-xs font-mono font-bold text-gray-600">₹0 <span className="text-[10px] text-gray-300 font-normal">/ Lifetime</span></p>
                   <div className="h-px bg-gray-100"></div>
                   <ul className="text-[10px] text-gray-505 space-y-1.5 text-left font-serif">
-                    <li className="flex items-center gap-1">❌ <span className="line-through">View Parent Mobile</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Register as Candidate</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>4-Gotras matching</span></li>
-                    <li className="flex items-center gap-1">❌ <span className="line-through">Samaj verified badge</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>10 Profile Views / Day</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>3 Interests / Month</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Community Access</span></li>
+                    <li className="flex items-center gap-1">❌ <span className="line-through">Advanced Searches</span></li>
                   </ul>
                 </div>
 
                 {/* 2. Silver */}
                 <div className="bg-white border border-[#D4AF37]/25 rounded-xl p-4 text-center space-y-3 relative hover:border-[#D4AF37] transition-all">
-                  <span className="text-[8px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">POPULAR</span>
-                  <h6 className="font-cinzel font-bold text-[#7A1F2B] text-xs">Phule Silver</h6>
-                  <p className="text-xs font-mono font-bold text-[#7A1F2B]">₹1,500 <span className="text-[10px] text-gray-400 font-normal">/ Year</span></p>
+                  <span className="text-[8px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded text-[8px]">POPULAR</span>
+                  <h6 className="font-cinzel font-bold text-[#7A1F2B] text-xs">Silver Plan</h6>
+                  <p className="text-xs font-mono font-bold text-[#7A1F2B]">₹299 <span className="text-[10px] text-gray-400 font-normal">/ Month</span></p>
                   <div className="h-px bg-gray-100"></div>
                   <ul className="text-[10px] text-gray-505 space-y-1.5 text-left font-serif">
-                    <li className="flex items-center gap-1">✔️ <span>20 Contacts / Month</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Selfie Match priority</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Silver Crown tag</span></li>
-                    <li className="flex items-center gap-1">❌ <span className="line-through">Personal manager</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Unlimited Views & Interest</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Advanced Search Filters</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>See Profile Visitors</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Priority Search Ranking</span></li>
                   </ul>
                 </div>
 
                 {/* 3. Gold */}
                 <div className="bg-gradient-to-b from-[#F8F4EC] to-white border-2 border-[#D4AF37] rounded-xl p-4 text-center space-y-3 relative shadow">
-                  <span className="text-[8px] bg-[#7A1F2B] text-[#D4AF37] font-bold px-1.5 py-0.5 rounded uppercase font-mono">ELDER PREFER</span>
-                  <h6 className="font-cinzel font-bold text-[#7A1F2B] text-xs">Maharaja Gold</h6>
-                  <p className="text-xs font-mono font-bold text-amber-700">₹3,000 <span className="text-[10px] text-gray-400 font-normal">/ 2 Years</span></p>
+                  <span className="text-[8px] bg-[#7A1F2B] text-[#D4AF37] font-bold px-1.5 py-0.5 rounded uppercase font-mono">BEST VALUE 🔥</span>
+                  <h6 className="font-cinzel font-bold text-[#7A1F2B] text-xs">Gold Plan</h6>
+                  <p className="text-xs font-mono font-bold text-amber-700">₹699 <span className="text-[10px] text-gray-400 font-normal">/ 3 Months</span></p>
                   <div className="h-px bg-[#D4AF37]/20"></div>
                   <ul className="text-[10px] text-gray-505 space-y-1.5 text-left font-serif">
-                    <li className="flex items-center gap-1">✔️ <span>50 Contacts / Month</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Featured in searches</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Astrological support</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Elder verification stamp</span></li>
-                  </ul>
-                </div>
-
-                {/* 4. Platinum */}
-                <div className="bg-gray-900 text-white rounded-xl p-4 text-center space-y-3 hover:border-amber-400 transition-all border border-transparent">
-                  <span className="text-[8px] bg-gradient-to-r from-yellow-500 to-amber-300 text-gray-900 font-bold px-1.5 py-0.5 rounded">EXCLUSIVE</span>
-                  <h6 className="font-cinzel font-bold text-[#D4AF37] text-xs">Royal Platinum</h6>
-                  <p className="text-xs font-mono font-bold text-amber-300">₹6,500 <span className="text-[10px] text-gray-400 font-normal">/ Lifetime</span></p>
-                  <div className="h-px bg-gray-800"></div>
-                  <ul className="text-[10px] text-gray-300 space-y-1.5 text-left font-serif">
-                    <li className="flex items-center gap-1">✔️ <span>Personal Relationship Mgr</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Direct physical introductions</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>Unlimited parent numbers</span></li>
-                    <li className="flex items-center gap-1">✔️ <span>100% Confidential matches</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Everything in Silver</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Featured Placement</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>WhatsApp & Mobile Unlock</span></li>
+                    <li className="flex items-center gap-1">✔️ <span>Fast Verification Queue</span></li>
                   </ul>
                 </div>
 

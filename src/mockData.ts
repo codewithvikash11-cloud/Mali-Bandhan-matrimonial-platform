@@ -45,7 +45,10 @@ export const INITIAL_PROFILES: Profile[] = [
     isCommunityVerified: true,
     profileCompletion: 95,
     lastActive: "Active 5 mins ago",
-    isOnline: true
+    isOnline: true,
+    familyContactTiming: "6:00 PM to 9:00 PM",
+    agricultureLandDetails: "6 Bigha irrigated land near Salawas, Jodhpur",
+    familyBusinessInfo: "Saini Agro Machinery & Tool Store"
   },
   {
     id: "mali-2",
@@ -91,7 +94,11 @@ export const INITIAL_PROFILES: Profile[] = [
     isCommunityVerified: true,
     profileCompletion: 100,
     lastActive: "Active now",
-    isOnline: true
+    isOnline: true,
+    photoPrivacyMode: "Blur",
+    familyContactTiming: "7:00 PM to 9:30 PM",
+    agricultureLandDetails: "Shared ownership - 15 Bigha agricultural land in Mohanpura, Sanganer",
+    familyBusinessInfo: "Bhanwar Saini & Sons Florist Exports"
   },
   {
     id: "mali-3",
@@ -136,7 +143,10 @@ export const INITIAL_PROFILES: Profile[] = [
     isCommunityVerified: true,
     profileCompletion: 85,
     lastActive: "Active 2 hours ago",
-    isOnline: false
+    isOnline: false,
+    familyContactTiming: "5:00 PM to 8:30 PM",
+    agricultureLandDetails: "None (Fully Urban business oriented family, owns 3 commercial retail shops in Pali)",
+    familyBusinessInfo: "Gehlot Marbles & Granite Showroom, Pali"
   },
   {
     id: "mali-4",
@@ -181,7 +191,11 @@ export const INITIAL_PROFILES: Profile[] = [
     isCommunityVerified: false,
     profileCompletion: 78,
     lastActive: "Active 1 day ago",
-    isOnline: false
+    isOnline: false,
+    photoPrivacyMode: "Visible",
+    familyContactTiming: "6:00 PM to 9:00 PM",
+    agricultureLandDetails: "8 Bighas fertile lemon orchard & agricultural land in Rupnagar, Beawar",
+    familyBusinessInfo: "Kishor Flower Nursery & Wholesale Florists, Ajmer"
   },
   {
     id: "mali-5",

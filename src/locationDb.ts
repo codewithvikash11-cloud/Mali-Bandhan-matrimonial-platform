@@ -421,6 +421,22 @@ const DEFAULT_TEHSILS: TehsilRecord[] = [
   { id: "teh-dud-3", districtId: "dist-dudu", name: "Phagi" }
 ];
 
+const DEFAULT_VILLAGES_BY_TEHSIL: { [tehsilName: string]: string[] } = {
+  "Luni": ["Salawas", "Dhawa", "Doli", "Peesangan", "Satlana", "Boranada", "Kankani", "Nandwan", "Tanawada", "Sarangwas"],
+  "Bilara": ["Bilara Town", "Khejarli", "Bala", "Ransigaon", "Borunda", "Pipar", "Kaparda", "Bhavi", "Olvi", "Hariyadhana"],
+  "Osian": ["Osian Town", "Tiwri", "Mathania", "Cherai", "Kanasar", "Bheekamkor", "Chadi", "Mandore", "Samrau", "Tiwari"],
+  "Bhopalgarh": ["Bhopalgarh Town", "Asop", "Khangta", "Raddod", "Palri", "Basni", "Malar", "Gara", "Kuri"],
+  "Sanganer": ["Sanganer Town", "Chatsu", "Watika", "Goner", "Mahapura", "Bhankrota", "Muhana", "Ramchandrapura"],
+  "Kishangarh": ["Kishangarh Town", "Harmara", "Rupangarh", "Arain", "Thal", "Karkeri", "Salemabad"],
+  "Sikar": ["Sikar Town", "Kudli", "Katrathal", "Piprali", "Harsh", "Dhani", "Khood", "Rashidpura", "Dhadhan"],
+  "Sojat": ["Sojat City", "Sojat Road", "Bagri", "Chandawal", "Sanderao", "Kharchi", "Mandla", "Rajnagar"],
+  "Jodhpur North": ["Mandore", "Daijar", "Karwar", "Bhadu", "Magra", "Santokhi"],
+  "Jodhpur South": ["Salawas", "Sangaria", "Boranada", "Basni", "Pal Road", "Jhalamand"],
+  "Ajmer": ["Ajmer Town", "Pushkar Road", "Somarkha", "Gegal", "Ladpura", "Ararka", "Makarwali"],
+  "Alwar": ["Alwar Town", "Malakhera City", "Bhadkol", "Macha", "Ond", "Gothri"],
+  "Barmer": ["Barmer Town", "Sindhari", "Gudamalani", "Chohtan", "Ramsar", "Shiv"]
+};
+
 export const locationDb = {
   // Retrieve all districts from localStorage "table" with defaults
   getDistricts: (): DistrictRecord[] => {
@@ -466,6 +482,51 @@ export const locationDb = {
       return [];
     }
     return locationDb.getTehsils(found.id);
+  },
+
+  // Retrieve villages associated with a tehsil name
+  getVillagesByTehsilName: (tehsilName: string): string[] => {
+    if (!tehsilName || tehsilName.toLowerCase() === 'all') return [];
+    
+    // Retrieve standard pre-defined villages
+    const standardVillages = DEFAULT_VILLAGES_BY_TEHSIL[tehsilName] || [];
+    
+    // Merge with any custom villages saved to localStorage
+    const saved = localStorage.getItem(`mali_villages_${tehsilName}`);
+    if (saved) {
+      try {
+        const customVillages = JSON.parse(saved);
+        return Array.from(new Set([...standardVillages, ...customVillages]));
+      } catch {
+        return standardVillages;
+      }
+    }
+    return standardVillages;
+  },
+
+  // Dynamic custom village registration
+  insertVillage: (tehsilName: string, villageName: string): string => {
+    const cleanTehsil = tehsilName.trim();
+    const cleanVillage = villageName.trim();
+    if (!cleanTehsil || !cleanVillage) return "";
+
+    const key = `mali_villages_${cleanTehsil}`;
+    let customVillages: string[] = [];
+    
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        customVillages = JSON.parse(saved);
+      } catch {
+        customVillages = [];
+      }
+    }
+
+    if (!customVillages.includes(cleanVillage)) {
+      customVillages.push(cleanVillage);
+      localStorage.setItem(key, JSON.stringify(customVillages));
+    }
+    return cleanVillage;
   },
 
   // Insert a custom district (INSERT INTO districts TABLE)

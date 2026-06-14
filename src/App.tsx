@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, Search, Bookmark, Award, Bell, Settings, Heart, HelpCircle, Scale, Sparkles, 
   MapPin, Landmark, ShieldCheck, Mail, Lock, Phone, User, Check, AlertCircle, Eye, 
-  ChevronRight, ArrowRight, UserCheck, Star, Send, Filter, LogOut, CheckCircle, Flame, ChevronDown
+  ChevronRight, ArrowRight, UserCheck, Star, Send, Filter, LogOut, CheckCircle, Flame, ChevronDown, Clock
 } from 'lucide-react';
 import { Profile, ScreenState, NotificationItem, SuccessStory } from './types';
 import { INITIAL_PROFILES, SUCCESS_STORIES, INITIAL_NOTIFICATIONS } from './mockData';
@@ -80,6 +80,112 @@ export default function App() {
 
   // Quick Global Search Box
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+
+  // Search History mechanism
+  interface SavedQuery {
+    id: string;
+    timestamp: string;
+    description: string;
+    filters: {
+      ageMin: number;
+      ageMax: number;
+      district: string;
+      gotra: string;
+      occupation: string;
+      income: string;
+      verifiedOnly: boolean;
+      tehsil: string;
+      village: string;
+      education: string;
+      maritalStatus: string;
+      premiumOnly: boolean;
+    }
+  }
+
+  const [searchHistory, setSearchHistory] = useState<SavedQuery[]>(() => {
+    try {
+      const saved = localStorage.getItem('MaliSamaj_searchHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleExecuteSearch = (customFilters?: SavedQuery['filters']) => {
+    const filtersToUse = customFilters || {
+      ageMin: filterAgeMin,
+      ageMax: filterAgeMax,
+      district: filterDistrict,
+      gotra: filterGotra,
+      occupation: filterOccupation,
+      income: filterIncome,
+      verifiedOnly: filterVerifiedOnly,
+      tehsil: filterTehsil,
+      village: filterVillage,
+      education: filterEducation,
+      maritalStatus: filterMaritalStatus,
+      premiumOnly: filterPremiumOnly,
+    };
+
+    if (customFilters) {
+      setFilterAgeMin(customFilters.ageMin);
+      setFilterAgeMax(customFilters.ageMax);
+      setFilterDistrict(customFilters.district);
+      setFilterGotra(customFilters.gotra);
+      setFilterOccupation(customFilters.occupation);
+      setFilterIncome(customFilters.income);
+      setFilterVerifiedOnly(customFilters.verifiedOnly);
+      setFilterTehsil(customFilters.tehsil);
+      setFilterVillage(customFilters.village);
+      setFilterEducation(customFilters.education);
+      setFilterMaritalStatus(customFilters.maritalStatus);
+      setFilterPremiumOnly(customFilters.premiumOnly);
+    } else {
+      const descParts = [];
+      if (filterGotra !== 'All') descParts.push(`Gotra: ${filterGotra}`);
+      if (filterDistrict !== 'All') descParts.push(`Dist: ${filterDistrict}`);
+      if (filterTehsil !== 'All') descParts.push(`Tehsil: ${filterTehsil}`);
+      if (filterVillage !== 'All' && filterVillage !== '') descParts.push(`Village: ${filterVillage}`);
+      descParts.push(`Age: ${filterAgeMin}-${filterAgeMax}`);
+      if (filterVerifiedOnly) descParts.push(`Verified Only`);
+      if (filterPremiumOnly) descParts.push(`Premium Only`);
+      
+      const description = descParts.join(' | ') || "Generic Board View";
+      
+      const newQuery: SavedQuery = {
+        id: Math.random().toString(36).substring(7),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        description,
+        filters: {
+          ageMin: filterAgeMin,
+          ageMax: filterAgeMax,
+          district: filterDistrict,
+          gotra: filterGotra,
+          occupation: filterOccupation,
+          income: filterIncome,
+          verifiedOnly: filterVerifiedOnly,
+          tehsil: filterTehsil,
+          village: filterVillage,
+          education: filterEducation,
+          maritalStatus: filterMaritalStatus,
+          premiumOnly: filterPremiumOnly,
+        }
+      };
+
+      setSearchHistory(prev => {
+        const updated = [newQuery, ...prev.filter(q => q.description !== description)].slice(0, 8);
+        localStorage.setItem('MaliSamaj_searchHistory', JSON.stringify(updated));
+        return updated;
+      });
+    }
+
+    setIsSearchLoading(true);
+    setTimeout(() => {
+      setIsSearchLoading(false);
+      setActiveView('BROWSE');
+    }, 600);
+  };
 
   // Settings screen editable states
   const [settingsPassword, setSettingsPassword] = useState('•••••••••');
@@ -108,6 +214,46 @@ export default function App() {
 
   // Dynamic toast system for elegant UI reports
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Search History State persistence - stores last 6 search filters
+  const [quickSearchHistory, setQuickSearchHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('mali_search_history');
+      return saved ? JSON.parse(saved) : ["Jodhpur", "Gehlot", "BTech", "Nursery", "Jaipur"];
+    } catch (e) {
+      return ["Jodhpur", "Gehlot", "BTech", "Nursery", "Jaipur"];
+    }
+  });
+
+  const [unlockedPhotos, setUnlockedPhotos] = useState<Record<string, boolean>>({});
+
+  const handleApplySearchTerm = (term: string) => {
+    setSearchQuery(term);
+    setQuickSearchHistory(prev => {
+      const filtered = prev.filter(t => t !== term);
+      const updated = [term, ...filtered].slice(0, 6);
+      localStorage.setItem('mali_search_history', JSON.stringify(updated));
+      return updated;
+    });
+    showToast(`Quick search history filter applied: "${term}"`);
+  };
+
+  const handleSaveSearchTerm = (term: string) => {
+    if (!term || term.trim() === '') return;
+    const cleanTerm = term.trim();
+    setQuickSearchHistory(prev => {
+      const filtered = prev.filter(t => t.toLowerCase() !== cleanTerm.toLowerCase());
+      const updated = [cleanTerm, ...filtered].slice(0, 6);
+      localStorage.setItem('mali_search_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleClearHistory = () => {
+    setQuickSearchHistory([]);
+    localStorage.removeItem('mali_search_history');
+    showToast("Your traditional search history stack has been cleared.");
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -371,7 +517,11 @@ export default function App() {
 
   // Traditional Rajasthan Mali Samaj Gotra Compatibility check computation
   const compatibilityResults = useMemo(() => {
-    if (!currentDetailProfile || !currentUser) return null;
+    if (!currentDetailProfile) return null;
+
+    // Fallback comparison reference so guest layout remains 100% active and readable
+    const referenceUser = currentUser || profiles.find(p => p.id === 'mali-1') || profiles[0];
+    if (!referenceUser || referenceUser.id === currentDetailProfile.id) return null;
 
     // Grab both paternal and maternal gotras for comparative analysis
     const ownGotraVal = currentDetailProfile.ownGotra || currentDetailProfile.gotra || '';
@@ -380,10 +530,10 @@ export default function App() {
     const naniGotraVal = currentDetailProfile.naniGotra || 'Deora';
 
     const viewerGotras = [
-      currentUser.ownGotra || currentUser.gotra,
-      currentUser.motherGotra,
-      currentUser.dadiGotra,
-      currentUser.naniGotra
+      referenceUser.ownGotra || referenceUser.gotra,
+      referenceUser.motherGotra,
+      referenceUser.dadiGotra,
+      referenceUser.naniGotra
     ].filter(Boolean).map(g => g.trim().toLowerCase());
 
     const isOwnGotraMatch = viewerGotras.includes(ownGotraVal.trim().toLowerCase());
@@ -392,6 +542,23 @@ export default function App() {
     const isNaniGotraMatch = viewerGotras.includes(naniGotraVal.trim().toLowerCase());
 
     const hasGotraMatch = isOwnGotraMatch || isMotherGotraMatch || isDadiGotraMatch || isNaniGotraMatch;
+
+    // Location compatibility score
+    const uDist = referenceUser.district || 'Jodhpur';
+    const cDist = currentDetailProfile.district || 'Jodhpur';
+    const isSameDistrict = uDist.toLowerCase() === cDist.toLowerCase();
+    const locationScore = isSameDistrict ? 100 : (referenceUser.preferredDistrict || '').toLowerCase().includes(cDist.toLowerCase()) ? 85 : 65;
+
+    // Age matching
+    const ageDiff = Math.abs(referenceUser.age - currentDetailProfile.age);
+    const isGroomOlder = referenceUser.gender === 'Male' ? referenceUser.age >= currentDetailProfile.age : currentDetailProfile.age >= referenceUser.age;
+    let ageScore = 95;
+    if (ageDiff > 9) ageScore = 40;
+    else if (ageDiff > 6) ageScore = 75;
+    else if (!isGroomOlder) ageScore = 80;
+
+    const gotraScore = hasGotraMatch ? 20 : 100;
+    const overallScore = Math.round((gotraScore + locationScore + 85 + ageScore) / 4);
 
     return {
       isOwnGotraMatch,
@@ -402,9 +569,16 @@ export default function App() {
       ownGotraVal,
       motherGotraVal,
       dadiGotraVal,
-      naniGotraVal
+      naniGotraVal,
+      locationScore,
+      ageScore,
+      overallScore,
+      ageDiff,
+      gotraScore,
+      isDemoMode: !currentUser,
+      referenceName: referenceUser.name
     };
-  }, [currentDetailProfile, currentUser]);
+  }, [currentDetailProfile, currentUser, profiles]);
 
   // Statistics for Dashboard widgets
   const stats = useMemo(() => {
@@ -603,6 +777,32 @@ export default function App() {
             {/* Main Interactive Screen Content router */}
             <div className="p-4 md:p-8 flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-8">
               
+              {isSearchLoading && (
+                <div className="fixed inset-0 z-50 bg-[#7A1F2B]/45 backdrop-blur-md flex items-center justify-center animate-fade-in">
+                  <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 border-2 border-[#D4AF37] shadow-royal text-center space-y-6">
+                    <div className="relative w-20 h-20 mx-auto">
+                      {/* Ambient Glowing Ring */}
+                      <div className="absolute inset-0 rounded-full border-4 border-[#7A1F2B]/10"></div>
+                      {/* Spinning Royal Ring */}
+                      <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#7A1F2B] border-r-[#D4AF37] animate-spin"></div>
+                      {/* Center Star */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Sparkles className="h-6 w-6 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-cinzel text-base font-bold text-[#7A1F2B]">Maharaja Search Active</h3>
+                      <p className="text-xs text-gray-500 font-sans leading-relaxed">
+                        Scanning Rajasthan Saini Malik database registries... Checking gotra exclusions & local match weights seamlessly.
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-center gap-1.5 text-[10px] uppercase font-mono font-bold tracking-wider text-[#D4AF37]">
+                      <Clock className="h-3 w-3 animate-spin text-[#D4AF37]" /> EST. WAIT TIME: 0.4 SEC
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ======================= */}
               {/* WIZARD SCREEN */}
               {/* ======================= */}
@@ -802,6 +1002,59 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* SEARCH FIELD WITH HISTORY PILLS */}
+                  <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                    <div className="flex gap-2">
+                      <div className="flex-1 flex items-center gap-2 bg-[#F8F4EC] border border-[#D4AF37]/35 rounded-xl px-4 py-2.5 text-xs">
+                        <Search className="h-4 w-4 text-amber-700" />
+                        <input 
+                          type="text" 
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveSearchTerm(searchQuery);
+                            }
+                          }}
+                          placeholder="Quick search by gotra, district, education, occupation (e.g., Gehlot, Pali, BTech, Farmer)..." 
+                          className="bg-transparent border-none outline-none w-full text-xs text-gray-800 placeholder-gray-400"
+                        />
+                        {searchQuery && (
+                          <button onClick={() => setSearchQuery('')} className="text-gray-400 font-bold font-sans text-sm pr-1">×</button>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleSaveSearchTerm(searchQuery)}
+                        className="bg-[#7A1F2B] hover:bg-[#601923] text-white font-cinzel text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl cursor-pointer"
+                      >
+                        Search
+                      </button>
+                    </div>
+
+                    {quickSearchHistory.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Recent Searches:
+                        </span>
+                        {quickSearchHistory.map((term, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleApplySearchTerm(term)}
+                            className="bg-[#F8F4EC] hover:bg-[#D4AF37]/10 text-[#7A1F2B] font-medium px-2.5 py-1 rounded-full border border-gray-200 hover:border-[#D4AF37]/40 transition-all cursor-pointer flex items-center gap-1 text-[11px]"
+                          >
+                            {term}
+                          </button>
+                        ))}
+                        <button
+                          onClick={handleClearHistory}
+                          className="text-rose-600 hover:text-rose-800 hover:underline text-[10px] font-bold uppercase pl-1 cursor-pointer"
+                        >
+                          Clear History
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Grid Layout of Candidates cards */}
                   {filteredProfiles.length === 0 ? (
                     <div className="bg-white rounded-2xl p-12 text-center max-w-xl mx-auto border border-gray-100 space-y-4">
@@ -837,8 +1090,27 @@ export default function App() {
                               src={candidate.photo} 
                               alt={candidate.name} 
                               referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${(candidate.gender === 'Female' && candidate.photoPrivacyMode === 'Blur' && !unlockedPhotos[candidate.id]) ? 'blur-md bg-gray-600 scale-102 select-none' : ''}`}
                             />
+
+                            {candidate.gender === 'Female' && candidate.photoPrivacyMode === 'Blur' && !unlockedPhotos[candidate.id] && (
+                              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4 text-center text-white backdrop-blur-[2px]">
+                                <Lock className="h-8 w-8 text-[#D4AF37] mb-1.5 animate-pulse" />
+                                <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest leading-loose">Privacy Blurry Active</span>
+                                <span className="text-[9px] text-[#F8F4EC] mt-0.5">Mali Traditional Lock check</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setUnlockedPhotos(prev => ({ ...prev, [candidate.id]: true }));
+                                    showToast(`Success: Photo unlock request sent to ${candidate.name}! Simulation granted instantly.`);
+                                  }}
+                                  className="mt-2 text-[8px] tracking-wider uppercase font-bold bg-[#7A1F2B] border border-[#D4AF37] text-white px-3 py-1.5 rounded-md shadow-lg cursor-pointer hover:bg-rose-950 transition-all animate-bounce"
+                                >
+                                  Unlock Photo
+                                </button>
+                              </div>
+                            )}
                             
                             {/* Badges Overlay */}
                             <div className="absolute top-3 left-3 right-3 flex justify-between items-center">
@@ -899,8 +1171,9 @@ export default function App() {
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-[8px] text-gray-400 font-mono">
                                   <span>Strength: {candidate.profileCompletion || 85}%</span>
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded flex items-center gap-0.5">🛡️ Trust Score: {80 + (candidate.verified ? 10 : 0) + (candidate.isCommunityVerified ? 8 : 0) + (candidate.premium ? 2 : 0)}%</span>
                                 </div>
-                                <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                                <div className="w-full bg-gray-150 h-1 rounded-full overflow-hidden">
                                   <div 
                                     className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" 
                                     style={{ width: `${candidate.profileCompletion || 85}%` }}
@@ -911,15 +1184,25 @@ export default function App() {
                               <div className="h-px bg-gray-100 my-1"></div>
                               
                               <p className="text-[11px] text-gray-600 flex items-center justify-center sm:justify-start gap-1 font-mono">
-                                <MapPin className="h-3.5 w-3.5 text-amber-700 shrink-0" /> {candidate.district}, Rajasthan
+                                <MapPin className="h-3.5 w-3.5 text-amber-700 shrink-0" /> Native: {candidate.village || 'Salawas'}, {candidate.tehsil || 'Luni'}, {candidate.district}
                               </p>
 
                               <p className="text-[11px] text-gray-600 truncate font-sans">
-                                {candidate.education}
+                                🎓 {candidate.education}
                               </p>
                               <p className="text-[11px] text-gray-500 truncate font-sans font-medium">
-                                {candidate.occupation} at {candidate.company || 'Private Practice'}
+                                💼 {candidate.occupation}
                               </p>
+
+                              {/* Traditional Assets badging inside the card */}
+                              <div className="flex flex-wrap gap-1 pt-1 justify-center sm:justify-start">
+                                <span className="bg-emerald-50 text-emerald-800 text-[10px] font-medium px-2 py-0.5 rounded border border-emerald-100/60 flex items-center gap-0.5">
+                                  🚜 {candidate.agricultureLandDetails || "Family Business"}
+                                </span>
+                                <span className="bg-amber-50 text-amber-950 text-[10px] font-medium px-2 py-0.5 rounded border border-[#D4AF37]/20 flex items-center gap-0.5">
+                                  🏘️ {candidate.familyBusinessInfo || "Nursery Gardens"}
+                                </span>
+                              </div>
                             </div>
 
                             {/* View & Connection Controls */}
@@ -965,6 +1248,42 @@ export default function App() {
                     <h2 className="font-cinzel text-xl font-bold text-[#7A1F2B]">Maharaja Gotra & District Search Engine</h2>
                     <p className="text-xs text-gray-500 font-serif italic">Use elite filters to bypass gotra restrictions (avoid paternal mother/paternal grandmother gotras as per Mali Samaj protocols)</p>
                   </div>
+
+                  {/* Search History / Recent Queries Tracker */}
+                  {searchHistory.length > 0 && (
+                    <div className="bg-[#F8F4EC]/40 border border-[#D4AF37]/20 rounded-2xl p-4 space-y-2 animate-fade-in">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-[#7A1F2B] uppercase tracking-wider block">
+                          ⚡ Your Recent Searches & Saved Queries
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSearchHistory([]);
+                            localStorage.removeItem('MaliSamaj_searchHistory');
+                          }}
+                          className="text-[9px] font-bold text-rose-700 hover:underline hover:text-rose-900 cursor-pointer"
+                        >
+                          Clear History
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 max-h-36 py-1">
+                        {searchHistory.map((query) => (
+                          <button
+                            key={query.id}
+                            onClick={() => handleExecuteSearch(query.filters)}
+                            className="text-left text-[11px] bg-white hover:bg-[#7A1F2B]/5 border border-gray-200 hover:border-[#7A1F2B]/40 rounded-xl px-3.5 py-2 transition-all cursor-pointer shadow-xs flex items-center gap-2 group shrink-0"
+                          >
+                            <span className="p-1 bg-[#F8F4EC] group-hover:bg-[#7A1F2B]/10 rounded-full text-[#7A1F2B] font-mono text-[9px] font-bold">
+                              {query.timestamp}
+                            </span>
+                            <span className="text-gray-700 font-medium truncate max-w-[240px]">
+                              {query.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-150 shadow-royal grid grid-cols-1 md:grid-cols-3 gap-6">
                     
@@ -1435,7 +1754,7 @@ export default function App() {
                         Reset parameters
                       </button>
                       <button 
-                        onClick={() => setActiveView('BROWSE')}
+                        onClick={() => handleExecuteSearch()}
                         className="bg-[#7A1F2B] text-white hover:bg-[#922a38] border border-[#D4AF37] px-8 py-2.5 font-cinzel text-xs font-bold rounded shadow flex items-center gap-2 cursor-pointer"
                       >
                         <Search className="h-4.5 w-4.5" /> Execute Maharaja query
@@ -1601,68 +1920,122 @@ export default function App() {
 
                       {/* Community Compatibility Card */}
                       {compatibilityResults && (
-                        <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-royal space-y-4 text-xs md:text-sm">
-                          <h3 className="font-cinzel text-xs font-bold text-[#7A1F2B] uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-1.5">
-                            <Sparkles className="h-4 w-4 text-[#D4AF37]" /> Traditional Mali Samaj Gotra Compatibility Check
-                          </h3>
-                          <p className="text-[11px] text-gray-500 italic font-serif">
-                            Comparative analysis against your saved maternal & paternal ancestral lines:
-                          </p>
+                        <div className="bg-gradient-to-br from-amber-50 to-white p-6 md:p-8 rounded-3xl border border-[#D4AF37]/55 shadow-royal space-y-6 text-xs md:text-sm">
                           
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            {/* Own Gotra Check */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              compatibilityResults.isOwnGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
-                            }`}>
-                              <div>
-                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">1. Own Gotra ({compatibilityResults.ownGotraVal})</span>
-                                {compatibilityResults.isOwnGotraMatch ? '✗ Collides with your ancestry' : '✓ Own Gotra Different'}
+                          {/* Card Header with Glowing Score */}
+                          <div className="flex items-center justify-between border-b border-[#D4AF37]/35 pb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-[#7A1F2B]/10 text-[#7A1F2B] rounded-full">
+                                <Sparkles className="h-5 w-5 text-amber-600 animate-pulse" />
                               </div>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isOwnGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
-                                {compatibilityResults.isOwnGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
-                              </span>
+                              <div>
+                                <h3 className="font-cinzel text-xs font-bold text-[#7A1F2B] uppercase tracking-wider">Traditional compatibility breakdown</h3>
+                                <p className="text-[10px] text-gray-400 font-serif">
+                                  {compatibilityResults.isDemoMode 
+                                    ? `Demo Analysis: Comparing with ${compatibilityResults.referenceName}`
+                                    : "Live Gotra, Age, and Location comparative breakdown"
+                                  }
+                                </p>
+                              </div>
                             </div>
-
-                            {/* Mother Gotra Check */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              compatibilityResults.isMotherGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
-                            }`}>
-                              <div>
-                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">2. Mother Gotra ({compatibilityResults.motherGotraVal})</span>
-                                {compatibilityResults.isMotherGotraMatch ? '✗ Collides with your ancestry' : '✓ Mother Gotra Different'}
-                              </div>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isMotherGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
-                                {compatibilityResults.isMotherGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
+                            <div className="text-center bg-white border border-[#D4AF37]/30 px-3 py-2 rounded-xl shadow-sm">
+                              <span className={`text-2xl font-black font-mono tracking-tighter block ${
+                                compatibilityResults.overallScore >= 80 ? 'text-emerald-600' : compatibilityResults.overallScore >= 60 ? 'text-amber-600' : 'text-rose-600'
+                              }`}>
+                                {compatibilityResults.overallScore}%
                               </span>
-                            </div>
-
-                            {/* Dadi Gotra Check */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              compatibilityResults.isDadiGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
-                            }`}>
-                              <div>
-                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">3. Dadi Gotra ({compatibilityResults.dadiGotraVal})</span>
-                                {compatibilityResults.isDadiGotraMatch ? '✗ Collides with your ancestry' : '✓ Dadi Gotra Different'}
-                              </div>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isDadiGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
-                                {compatibilityResults.isDadiGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
-                              </span>
-                            </div>
-
-                            {/* Nani Gotra Check */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              compatibilityResults.isNaniGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100 text-[#7A1F2B]'
-                            }`}>
-                              <div>
-                                <span className="font-semibold block text-[10px] text-gray-500 uppercase">4. Nani Gotra ({compatibilityResults.naniGotraVal})</span>
-                                {compatibilityResults.isNaniGotraMatch ? '✗ Collides with your ancestry' : '✓ Nani Gotra Different'}
-                              </div>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isNaniGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-150 text-emerald-800'}`}>
-                                {compatibilityResults.isNaniGotraMatch ? '⚠️ Conflict' : '✓ Safe'}
-                              </span>
+                              <span className="text-[8px] uppercase tracking-widest text-[#7A1F2B] font-black">Sutra Fit</span>
                             </div>
                           </div>
 
+                          {/* Gotras Check Grid */}
+                          <div className="space-y-3">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Ancestral Four Gotras Match (चार गोत्र जाँच)</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                              {/* Own Gotra Check */}
+                              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                                compatibilityResults.isOwnGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100/60 text-emerald-950'
+                              }`}>
+                                <div>
+                                  <span className="font-semibold block text-[10px] text-gray-500 uppercase">1. Own Gotra ({compatibilityResults.ownGotraVal})</span>
+                                  {compatibilityResults.isOwnGotraMatch ? '✗ Collides with your ancestry' : '✓ Own Gotra Different'}
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isOwnGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {compatibilityResults.isOwnGotraMatch ? '⚠️ Overlap' : '✓ Safe'}
+                                </span>
+                              </div>
+
+                              {/* Mother Gotra Check */}
+                              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                                compatibilityResults.isMotherGotraMatch ? 'bg-red-50 border-red-200 text-red-950' : 'bg-emerald-50/50 border-emerald-100/60 text-emerald-950'
+                              }`}>
+                                <div>
+                                  <span className="font-semibold block text-[10px] text-gray-500 uppercase">2. Mother Gotra ({compatibilityResults.motherGotraVal})</span>
+                                  {compatibilityResults.isMotherGotraMatch ? '✗ Collides with your ancestry' : '✓ Mother Gotra Different'}
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isMotherGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {compatibilityResults.isMotherGotraMatch ? '⚠️ Overlap' : '✓ Safe'}
+                                </span>
+                              </div>
+
+                              {/* Dadi Gotra Check */}
+                              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                                compatibilityResults.isDadiGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100/60 text-emerald-950'
+                              }`}>
+                                <div>
+                                  <span className="font-semibold block text-[10px] text-gray-500 uppercase">3. Dadi Gotra ({compatibilityResults.dadiGotraVal})</span>
+                                  {compatibilityResults.isDadiGotraMatch ? '✗ Collides with your ancestry' : '✓ Dadi Gotra Different'}
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isDadiGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {compatibilityResults.isDadiGotraMatch ? '⚠️ Overlap' : '✓ Safe'}
+                                </span>
+                              </div>
+
+                              {/* Nani Gotra Check */}
+                              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                                compatibilityResults.isNaniGotraMatch ? 'bg-red-50 border-red-200 text-red-955' : 'bg-emerald-50/50 border-emerald-100/60 text-emerald-950'
+                              }`}>
+                                <div>
+                                  <span className="font-semibold block text-[10px] text-gray-500 uppercase">4. Nani Gotra ({compatibilityResults.naniGotraVal})</span>
+                                  {compatibilityResults.isNaniGotraMatch ? '✗ Collides with your ancestry' : '✓ Nani Gotra Different'}
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${compatibilityResults.isNaniGotraMatch ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {compatibilityResults.isNaniGotraMatch ? '⚠️ Overlap' : '✓ Safe'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Extra Dimension gauges: Proximity & Age indices */}
+                          <div className="bg-white p-4.5 rounded-2xl border border-gray-150 space-y-3">
+                            <span className="text-[9px] font-bold text-[#7A1F2B] uppercase tracking-widest block">Other Key Alignment Metrics</span>
+                            
+                            <div className="space-y-2.5">
+                              {/* Geographic range suitability */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-semibold text-gray-700">
+                                  <span>District Proximity (निकटता)</span>
+                                  <span>{compatibilityResults.locationScore}%</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                  <div className="h-full bg-amber-500" style={{ width: `${compatibilityResults.locationScore}%` }}></div>
+                                </div>
+                              </div>
+
+                              {/* Age gaps */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-semibold text-gray-700">
+                                  <span>Age Gap Suitability ({compatibilityResults.ageDiff} Yrs difference)</span>
+                                  <span>{compatibilityResults.ageScore}%</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                  <div className="h-full bg-sky-500" style={{ width: `${compatibilityResults.ageScore}%` }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cultural outcome badge */}
                           {compatibilityResults.hasGotraMatch ? (
                             <div className="p-4 bg-amber-50 rounded-xl border border-amber-250 text-amber-950 flex gap-2.5 text-[11px] leading-relaxed">
                               <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
@@ -1672,7 +2045,7 @@ export default function App() {
                               </div>
                             </div>
                           ) : (
-                            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950 flex gap-2.5 text-[11px] leading-relaxed">
+                            <div className="p-4 bg-emerald-55 rounded-xl border border-emerald-200 text-emerald-950 flex gap-2.5 text-[11px] leading-relaxed">
                               <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                               <div>
                                 <strong className="block font-semibold">Perfect Clan Compatibility (सभी गोत्र अनुकूल):</strong>
@@ -1680,6 +2053,13 @@ export default function App() {
                               </div>
                             </div>
                           )}
+
+                          {/* Traditional dial times recommendations */}
+                          <div className="p-3 bg-[#7A1F2B]/5 rounded-xl border border-[#7A1F2B]/10 text-[#7A1F2B] font-medium text-[10px] flex items-center justify-between">
+                            <span>🕒 Recommended Call Timing:</span>
+                            <span className="font-bold">{currentDetailProfile.familyContactTiming || "6:00 PM to 9:00 PM (शाम 6 से 9 बजे)"}</span>
+                          </div>
+
                         </div>
                       )}
 
@@ -2640,17 +3020,174 @@ export default function App() {
       {/* ========================================== */}
       {/* 4. FOOTER CULTURAL FOOTNOTES */}
       {/* ========================================== */}
-      <footer className="bg-white border-t border-[#D4AF37]/20 p-6 md:p-8 text-center text-xs text-gray-500 space-y-2 select-none">
-        <p className="font-cinzel text-xs font-bold text-[#7A1F2B] tracking-widest gap-2 flex justify-center items-center">
-          <Landmark className="h-4 w-4 text-[#D4AF37]" /> राजस्थान माली बंधन • RAJASTHAN MALI SAMAJ CULTURAL FORUM
-        </p>
-        <p className="text-[10px] text-gray-400 font-serif italic max-w-xl mx-auto">
-          "Educate, Unite, Uplift." This portal operates as a non-profit premium community service under the guidance of respected Mali Samaj trustees, honoring Mahatma Jyotiba Phule and Savitribai Phule guidelines.
-        </p>
-        <p className="text-[9px] text-[#B8860B] font-mono">
-          © 2226 - 2026 Rajasthan Mali Bandhan Inc. All marriage bonds validated under local Rajasthan culture.
-        </p>
+      <footer className="bg-white border-t border-[#D4AF37]/20 pt-12 pb-24 md:pb-12 text-xs text-gray-500 select-none">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+          
+          {/* Column 1: About */}
+          <div className="space-y-4">
+            <p className="font-cinzel text-xs font-bold text-[#7A1F2B] tracking-widest gap-2 flex items-center">
+              <Landmark className="h-4.5 w-4.5 text-[#D4AF37]" /> राजस्थान माली बंधन
+            </p>
+            <p className="text-[10px] text-gray-400 font-serif leading-relaxed italic">
+              "Educate, Unite, Uplift." Operating under Mahatma Jyotiba Phule guidelines, this secure digital platform empowers Mali marriages with heritage authenticity and verified direct connections.
+            </p>
+            <p className="text-[9px] text-[#B8860B] font-sans">
+              Dedicated to families across Jodhpur, Pali, Marwar, Jaipur, Udaipur, and all corners of Rajasthan state.
+            </p>
+          </div>
+
+          {/* Column 2: Quick Links */}
+          <div className="space-y-3 font-sans">
+            <h4 className="font-cinzel text-[10px] font-bold text-gray-800 tracking-wider">MEMBER DIRECTORY & SUPPORT</h4>
+            <ul className="space-y-2 text-[10px]">
+              <li>
+                <button 
+                  onClick={() => { setActiveView('BROWSE'); setSelectedProfileId(null); }} 
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  🔍 Browse Grooms & Brides Catalog
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('ASSISTANT'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  ✦ Samaj AI Kundli Advisor
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('HELP'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left font-bold"
+                >
+                  📞 Contact Official Support Line
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('SUCCESS_STORIES'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  💖 Shubh Vivah Success Stories
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 3: Legal Compliance */}
+          <div className="space-y-3 font-sans">
+            <h4 className="font-cinzel text-[10px] font-bold text-gray-800 tracking-wider">CULTURAL TRUST & POLICY MATTERS</h4>
+            <ul className="space-y-2 text-[10px]">
+              <li>
+                <button 
+                  onClick={() => { setActiveView('LEGAL'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  🛡️ Secure Privacy & Identity Guard
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('LEGAL'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  ⚖️ Terms & Community Conditions
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('LEGAL'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left"
+                >
+                  💳 Shagun Fee & Refund Guidelines
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveView('LEGAL'); }}
+                  className="hover:text-[#7A1F2B] hover:underline cursor-pointer transition-colors block text-left text-amber-800 font-bold"
+                >
+                  🤝 Community Marriage Guidelines
+                </button>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 md:px-8 mt-8 pt-6 border-t border-gray-150 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <p className="text-[9px] text-gray-400 font-mono">
+            © 2018 - 2026 Rajasthan Mali Bandhan Inc. All marriage matches aligned with local traditional values.
+          </p>
+          <div className="flex gap-4 text-[9px] text-gray-400 underline font-sans">
+            <button onClick={() => { setActiveView('LEGAL'); }} className="hover:text-[#7A1F2B]">Privacy</button>
+            <button onClick={() => { setActiveView('LEGAL'); }} className="hover:text-[#7A1F2B]">Terms</button>
+            <button onClick={() => { setActiveView('LEGAL'); }} className="hover:text-[#7A1F2B]">Refunds</button>
+            <span className="no-underline text-emerald-600 font-bold">● Secure SSL Gateway</span>
+          </div>
+        </div>
       </footer>
+
+      {/* 6. MOBILE BOTTOM NAVIGATION SYSTEM (FOR AUTHENTICATED USERS) */}
+      {currentUser && (
+        <div className="md:hidden fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md border border-[#D4AF37]/45 rounded-2xl z-40 flex justify-around items-center py-2.5 px-1 shadow-[0_5px_18px_rgba(0,0,0,0.12)] border-b-2">
+          
+          <button 
+            onClick={() => setActiveView('DASHBOARD')}
+            className={`flex flex-col items-center gap-0.5 justify-center flex-1 cursor-pointer transition-colors ${activeView === 'DASHBOARD' ? 'text-[#7A1F2B]' : 'text-gray-400'}`}
+          >
+            <Users className="h-4.5 w-4.5" />
+            <span className="text-[8px] font-bold uppercase tracking-tight">Dashboard</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              setActiveView('BROWSE');
+              setSelectedProfileId(null);
+            }}
+            className={`flex flex-col items-center gap-0.5 justify-center flex-1 cursor-pointer transition-colors ${activeView === 'BROWSE' || activeView === 'DETAIL' ? 'text-[#7A1F2B]' : 'text-gray-400'}`}
+          >
+            <Search className="h-4.5 w-4.5" />
+            <span className="text-[8px] font-bold uppercase tracking-tight">Browse</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveView('ASSISTANT')}
+            className={`flex flex-col items-center gap-0.5 justify-center flex-1 cursor-pointer transition-colors ${activeView === 'ASSISTANT' ? 'text-[#7A1F2B]' : 'text-gray-400'}`}
+          >
+            <div className="relative">
+              <Sparkles className="h-4.5 w-4.5" />
+              <div className="absolute -top-1 -right-1.5 w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+            </div>
+            <span className="text-[8px] font-bold uppercase tracking-tight">AI Advisor</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveView('INTERESTS')}
+            className={`flex flex-col items-center gap-0.5 justify-center flex-1 cursor-pointer transition-colors ${activeView === 'INTERESTS' ? 'text-[#7A1F2B]' : 'text-gray-400'}`}
+          >
+            <Heart className="h-4.5 w-4.5" />
+            <span className="text-[8px] font-bold uppercase tracking-tight">Interests</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveView('NOTIFICATIONS')}
+            className={`flex flex-col items-center gap-0.5 justify-center flex-1 cursor-pointer relative transition-colors ${activeView === 'NOTIFICATIONS' ? 'text-[#7A1F2B]' : 'text-gray-400'}`}
+          >
+            <div className="relative">
+              <Bell className="h-4.5 w-4.5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-650 text-white font-mono font-bold text-[7px] h-3.5 min-w-[14px] px-1 rounded-full flex items-center justify-center border border-white">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[8px] font-bold uppercase tracking-tight">Inbox</span>
+          </button>
+
+        </div>
+      )}
 
       {/* 5. FLOATING PREMIUM TOAST NOTIFICATION */}
       {toastMessage && (

@@ -14,9 +14,6 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
   const [search, setSearch] = useState("");
   const [gotras, setGotras] = useState<GotraRecord[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [isAddingCustom, setIsAddingCustom] = useState(false);
-  const [customGotraName, setCustomGotraName] = useState("");
-  const [customGotraHindi, setCustomGotraHindi] = useState("");
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -59,12 +56,11 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
   const regularGotras = filteredGotras.filter(g => !g.isPopular && !g.isRecentlyUsed && !g.isCustom);
 
   // Flat list helper for keyboard navigation index mapping
-  const flatFilteredList: Array<{ record: GotraRecord | 'OTHER'; isOther: boolean }> = [];
+  const flatFilteredList: Array<{ record: GotraRecord; isOther: boolean }> = [];
   popularGotras.forEach(r => flatFilteredList.push({ record: r, isOther: false }));
   recentlyUsedGotras.forEach(r => flatFilteredList.push({ record: r, isOther: false }));
   customGotras.forEach(r => flatFilteredList.push({ record: r, isOther: false }));
   regularGotras.forEach(r => flatFilteredList.push({ record: r, isOther: false }));
-  flatFilteredList.push({ record: 'OTHER', isOther: true }); // Add "Other / My Gotra Not Listed"
 
   // Select a gotra Handler
   const handleSelect = (gotraName: string) => {
@@ -73,7 +69,6 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
     setIsOpen(false);
     setSearch("");
     setActiveIndex(-1);
-    setIsAddingCustom(false);
   };
 
   // Keyboard navigation controller
@@ -100,11 +95,7 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
         e.preventDefault();
         if (activeIndex >= 0 && activeIndex < flatFilteredList.length) {
           const item = flatFilteredList[activeIndex];
-          if (item.isOther) {
-            setIsAddingCustom(true);
-          } else {
-            handleSelect((item.record as GotraRecord).name);
-          }
+          handleSelect(item.record.name);
         }
         break;
       case "Escape":
@@ -114,21 +105,6 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
       default:
         break;
     }
-  };
-
-  // Save new custom gotra to the database
-  const handleAddCustomGotraSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customGotraName.trim()) return;
-
-    // Save custom gotra dynamically to localStorage DB table
-    const saved = gotraDb.insert(customGotraName.trim(), customGotraHindi.trim() || undefined);
-    handleSelect(saved.name);
-    
-    // Clear inputs
-    setCustomGotraName("");
-    setCustomGotraHindi("");
-    setIsAddingCustom(false);
   };
 
   return (
@@ -156,54 +132,8 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
 
-      {/* Nested custom gotra builder block if chosen other */}
-      {isAddingCustom && (
-        <div className="mt-2 p-3 bg-[#F8F4EC] border border-[#D4AF37]/45 rounded-xl space-y-2 text-xs">
-          <p className="font-bold text-[#7A1F2B] flex items-center gap-1">
-            <Plus className="h-3.5 w-3.5" /> Direct Custom Gotra Registrary
-          </p>
-          <div className="space-y-1">
-            <span className="text-[10px] text-gray-500 block">English Gotra Name</span>
-            <input 
-              type="text" 
-              value={customGotraName}
-              onChange={(e) => setCustomGotraName(e.target.value)}
-              placeholder="e.g. Goyal, Parihar, Borana"
-              className="w-full p-2 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B] text-xs"
-            />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] text-gray-500 block">Hindi Gotra Name (Optional)</span>
-            <input 
-              type="text" 
-              value={customGotraHindi}
-              onChange={(e) => setCustomGotraHindi(e.target.value)}
-              placeholder="e.g. गोयल, परिहार, बोराणा"
-              className="w-full p-2 border border-gray-300 rounded bg-white focus:outline-[#7A1F2B] text-xs"
-            />
-          </div>
-          <div className="flex gap-2 justify-end pt-1">
-            <button 
-              type="button" 
-              onClick={() => setIsAddingCustom(false)}
-              className="px-2.5 py-1.5 text-gray-600 font-medium hover:bg-gray-100 rounded text-[11px]"
-            >
-              Cancel
-            </button>
-            <button 
-              type="button" 
-              onClick={handleAddCustomGotraSubmit}
-              disabled={!customGotraName.trim()}
-              className="px-3 py-1.5 bg-[#7A1F2B] text-white font-bold rounded text-[11px] hover:bg-[#922a38] transition-colors disabled:opacity-55 cursor-pointer"
-            >
-              Save to Database
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main popover panel list of gotras */}
-      {isOpen && !isAddingCustom && (
+      {isOpen && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-hidden flex flex-col">
           {/* Search bar inside header popover */}
           <div className="p-2 border-b border-gray-100 flex items-center gap-1.5 bg-[#F8F4EC]/30">
@@ -323,30 +253,10 @@ export default function SearchableGotraDropdown({ label, value, onChange, idSuff
 
             {/* Final dynamic list fallbacks */}
             {filteredGotras.length === 0 && (
-              <div className="text-center p-3 text-gray-500 italic">
-                No standard gotra matches "{search}"
+              <div className="text-center p-4 text-gray-500 italic font-sans leading-relaxed">
+                No matching gotra found. Please contact support.
               </div>
             )}
-
-            {/* Separator */}
-            <div className="h-px bg-gray-150 my-1"></div>
-
-            {/* Add Custom Trigger inside checklist */}
-            {(() => {
-              const otherFlatIdx = flatFilteredList.findIndex(item => item.isOther);
-              return (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingCustom(true)}
-                  className={`w-full text-left px-3 py-2 text-xs text-[#7A1F2B] font-bold flex items-center gap-2 rounded-lg ${
-                    otherFlatIdx === activeIndex ? 'bg-[#7A1F2B]/10' : 'hover:bg-[#F8F4EC]'
-                  }`}
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Other / My Gotra Not Listed...</span>
-                </button>
-              );
-            })()}
 
           </div>
         </div>
