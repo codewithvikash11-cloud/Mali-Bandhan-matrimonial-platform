@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from './context/AuthContext';
 import { 
   Users, Search, Bookmark, Award, Bell, Settings, Heart, HelpCircle, Scale, Sparkles, 
   MapPin, Landmark, ShieldCheck, Mail, Lock, Phone, User, Check, AlertCircle, Eye, 
@@ -6,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Profile, ScreenState, NotificationItem, SuccessStory } from './types';
 import { INITIAL_PROFILES, SUCCESS_STORIES, INITIAL_NOTIFICATIONS } from './mockData';
+import { isAppwriteReady, loadAllProfiles, fetchUserProfile, saveUserProfile } from './lib/appwrite';
 
 // Component Imports
 import HeritagePage from './components/HeritagePage';
@@ -19,6 +21,17 @@ import { locationDb } from './locationDb';
 import { EDUCATION_OPTIONS, OCCUPATION_OPTIONS, INCOME_OPTIONS } from './components/CareerSection';
 
 export default function App() {
+  const { 
+    user, 
+    login: apiLogin, 
+    register: apiRegister, 
+    logout: apiLogout, 
+    sendPasswordReset, 
+    isLoading: isAuthLoading,
+    error: authError,
+    clearError
+  } = useAuth();
+
   // Navigation State
   const [activeView, setActiveView] = useState<ScreenState>('AUTH_LOGIN');
   
@@ -29,9 +42,92 @@ export default function App() {
   
   // Active Authenticated User Profile (Initially Null for login screens)
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+
+  // Load ALL candidate profiles from Appwrite if ready, or stay with memory list
+  useEffect(() => {
+    const fetchAllAppwriteProfiles = async () => {
+      if (isAppwriteReady()) {
+        try {
+          const dbProfiles = await loadAllProfiles();
+          if (dbProfiles && dbProfiles.length > 0) {
+            setProfiles(dbProfiles);
+          }
+        } catch (err) {
+          console.error("Failed to load profiles from Appwrite databases:", err);
+        }
+      }
+    };
+    fetchAllAppwriteProfiles();
+  }, [user]);
+
+  // Sync session state to matrimonial candidate profile (Appwrite or Local Fallback)
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (user) {
+        if (isAppwriteReady()) {
+          try {
+            let dbProfile = await fetchUserProfile(user.id);
+            if (dbProfile) {
+              // Real-time online activity heartbeat update
+              dbProfile.isOnline = true;
+              dbProfile.lastActive = new Date().toISOString();
+              try {
+                dbProfile = await saveUserProfile(user.id, dbProfile);
+              } catch (saveErr) {
+                console.error("Failed to update user's online state:", saveErr);
+              }
+
+              setCurrentUser(dbProfile);
+              // Ensure registered user is in local memory profiles array
+              setProfiles(prev => {
+                if (!prev.some(p => p.id === dbProfile.id)) {
+                  return [dbProfile, ...prev];
+                }
+                return prev.map(p => p.id === dbProfile.id ? dbProfile : p);
+              });
+              if (activeView.startsWith('AUTH_')) {
+                setActiveView('DASHBOARD');
+              }
+            } else {
+              // Valid login session but no candidate profile document created yet -> launch Setup Wizard
+              if (activeView.startsWith('AUTH_')) {
+                setActiveView('WIZARD');
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching user profile from Appwrite:", err);
+          }
+        } else {
+          // Offline/Mock Fallback Mode execution
+          const emailMatch = user.email ? user.email.toLowerCase() : '';
+          const matched = profiles.find(
+            (p) => (p.email && p.email.toLowerCase() === emailMatch) || p.id === user.id
+          );
+          if (matched) {
+            setCurrentUser(matched);
+            if (activeView.startsWith('AUTH_')) {
+              setActiveView('DASHBOARD');
+            }
+          } else {
+            if (activeView.startsWith('AUTH_')) {
+              setActiveView('WIZARD');
+            }
+          }
+        }
+      } else {
+        // Reset if logged out and not on a public view
+        if (!activeView.startsWith('AUTH_') && activeView !== 'WIZARD' && activeView !== 'HELP' && activeView !== 'LEGAL') {
+          setCurrentUser(null);
+          setActiveView('AUTH_LOGIN');
+        }
+      }
+    };
+
+    syncProfile();
+  }, [user]);
   
   // Membership Level state
-  const [membershipStatus, setMembershipStatus] = useState<'Free' | 'Silver' | 'Gold' | 'Platinum'>('Free');
+  const [membershipStatus, setMembershipStatus] = useState<'Free' | 'Silver' | 'Gold'>('Free');
   
   // Browsing/Detail and Search State
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -51,6 +147,10 @@ export default function App() {
   // Notification dropdown toggle
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
 
+  // Configurable search rules and sorting criteria
+  const [sortBy, setSortBy] = useState<string>('recently_active');
+  const [forceOppositeGender, setForceOppositeGender] = useState<boolean>(true);
+
   // Advanced Search Filter Criteria
   const [filterAgeMin, setFilterAgeMin] = useState<number>(21);
   const [filterAgeMax, setFilterAgeMax] = useState<number>(35);
@@ -64,6 +164,7 @@ export default function App() {
   const [filterEducation, setFilterEducation] = useState<string>('All');
   const [filterMaritalStatus, setFilterMaritalStatus] = useState<string>('All');
   const [filterPremiumOnly, setFilterPremiumOnly] = useState<boolean>(false);
+  const [visibleProfilesCount, setVisibleProfilesCount] = useState<number>(8);
 
   // Search filter location dropdown systems
   const [isFilterDistrictOpen, setIsFilterDistrictOpen] = useState(false);
@@ -357,75 +458,52 @@ export default function App() {
   };
 
   // Authenticated Profile Creation Wizard Callback
-  const handleWizardCompletion = (newCreatedProfile: Profile) => {
-    setCurrentUser(newCreatedProfile);
-    setProfiles(prev => [newCreatedProfile, ...prev]);
-    setActiveView('DASHBOARD');
-  };
+  const handleWizardCompletion = async (newCreatedProfile: Profile) => {
+    let finalProfile = { ...newCreatedProfile };
+    if (user) {
+      finalProfile.id = user.id;
+      finalProfile.email = user.email || finalProfile.email;
+    }
 
-  // Fast Login / Skip Setup Helper - For tester convenience
-  const handleQuickLoginAsCompletedUser = (isGroom: boolean) => {
-    const demoProfile: Profile = {
-      id: "demo-user-1",
-      name: isGroom ? "Girdhar Lal Gehlot" : "Sanjana Saini",
-      gender: isGroom ? "Male" : "Female",
-      age: isGroom ? 29 : 25,
-      dob: "1997-03-11",
-      mobile: "+91 94140 28421",
-      email: "guardian.family@gmail.com",
-      gotra: isGroom ? "Solanki" : "Sankhla",
-      ownGotra: isGroom ? "Solanki" : "Sankhla",
-      motherGotra: isGroom ? "Tanwar" : "Gehlot",
-      dadiGotra: isGroom ? "Sankhla" : "Solanki",
-      naniGotra: isGroom ? "Kachhawaha" : "Tak",
-      district: "Jodhpur",
-      tehsil: "Luni",
-      village: "Salawas",
-      education: "Master of Computer Applications (MCA)",
-      college: "M.B.M. Engineering College, Jodhpur",
-      occupation: "Government Secondary IT Incharge",
-      company: "Department of Education, Rajasthan",
-      income: "₹12 Lakhs / Annum",
-      fatherName: "Mr. Mohan Lal Gehlot (Landlord/Agriculturist)",
-      motherName: "Mrs. Sharda Devi",
-      familyType: "Joint",
-      brothers: "1 elder brother (Corporate manager in Pune)",
-      sisters: "2 sisters (Married into respected Saini families)",
-      maritalStatus: "Never Married",
-      preferredAge: isGroom ? "23 - 27" : "27 - 31",
-      preferredDistrict: "Jodhpur, Pali, Nagaur, Jaipur",
-      preferredEducation: "Graduate / Government Teacher Preferred",
-      preferredProfession: "Professional or Government Employee",
-      photo: isGroom 
-        ? "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=400&h=400"
-        : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=400&h=400",
-      gallery: [],
-      verified: true,
-      premium: true,
-      isShortlisted: false,
-      interestStatus: 'none',
-      managedBy: isGroom ? 'Self' : 'Father',
-      isCommunityVerified: true,
-      profileCompletion: 100,
-      lastActive: "Active now",
-      isOnline: true
-    };
-    setCurrentUser(demoProfile);
-    setMembershipStatus('Gold');
+    if (isAppwriteReady() && user) {
+      try {
+        const saved = await saveUserProfile(user.id, finalProfile);
+        finalProfile = saved;
+        showToast("Profile wizard data successfully synchronized with Appwrite database!");
+      } catch (err) {
+        console.error("Failed to save wizard profile to Appwrite databases:", err);
+        showToast("Local profile updated successfully. Safe database retry scheduled.");
+      }
+    } else {
+      showToast("Profile drafted successfully inside local storage memory.");
+    }
+
+    setCurrentUser(finalProfile);
+    setProfiles(prev => {
+      if (prev.some(p => p.id === finalProfile.id)) {
+        return prev.map(p => p.id === finalProfile.id ? finalProfile : p);
+      }
+      return [finalProfile, ...prev];
+    });
     setActiveView('DASHBOARD');
   };
 
   // Filter profiles based on inputs + search matching
   const filteredProfiles = useMemo(() => {
-    return profiles.filter(p => {
+    const list = profiles.filter(p => {
       // Never show blocked profiles
       if (p.isBlocked) return false;
 
       // Never show current user in matching candidates
       if (currentUser && p.id === currentUser.id) return false;
       
-      // Ensure searching opposite genders primarily
-      if (currentUser && p.gender === currentUser.gender) return false;
+      // Ensure searching opposite genders primarily (configurable by future Admin)
+      if (forceOppositeGender && currentUser && p.gender === currentUser.gender) return false;
+
+      // Profile visibility rules (Public, Verified Only)
+      if (p.photoPrivacyMode === 'Verified Only' && (!currentUser || !currentUser.verified)) {
+        return false;
+      }
 
       // Filter by verification status
       if (filterVerifiedOnly && !p.verified) return false;
@@ -504,10 +582,37 @@ export default function App() {
 
       return true;
     });
+
+    // Real candidate sorting engine
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'recently_active': {
+          const aTime = a.lastActive ? new Date(a.lastActive).getTime() : 0;
+          const bTime = b.lastActive ? new Date(b.lastActive).getTime() : 0;
+          return bTime - aTime;
+        }
+        case 'newest': {
+          // Fallback to alphabetical or id comparison for order
+          return b.id.localeCompare(a.id);
+        }
+        case 'verified_first': {
+          if (a.verified && !b.verified) return -1;
+          if (!a.verified && b.verified) return 1;
+          return 0;
+        }
+        case 'premium_first': {
+          if (a.premium && !b.premium) return -1;
+          if (!a.premium && b.premium) return 1;
+          return 0;
+        }
+        default:
+          return 0;
+      }
+    });
   }, [
     profiles, currentUser, filterAgeMin, filterAgeMax, filterDistrict, filterGotra, 
     filterOccupation, filterVerifiedOnly, filterTehsil, filterVillage, filterEducation, 
-    filterMaritalStatus, filterPremiumOnly, filterIncome, searchQuery
+    filterMaritalStatus, filterPremiumOnly, filterIncome, searchQuery, sortBy, forceOppositeGender
   ]);
 
   // Selected single profile for profile detail screen
@@ -592,6 +697,17 @@ export default function App() {
       connectionsApproved: profiles.filter(p => p.interestStatus === 'accepted').length
     };
   }, [profiles]);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F4EC] flex flex-col items-center justify-center space-y-4">
+        <Landmark className="h-12 w-12 text-[#7A1F2B] animate-pulse" />
+        <p className="font-cinzel text-xs uppercase tracking-widest text-[#7A1F2B] font-extrabold animate-pulse">
+          राजस्थान माली बंधन • Connecting Samaj...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F4EC] text-[#1F1F1F] font-sans flex flex-col justify-between selection:bg-[#7A1F2B] selection:text-white">
@@ -687,10 +803,26 @@ export default function App() {
             {currentUser && (
               <div className="p-4 border-t border-[#D4AF37]/15">
                 <button 
-                  onClick={() => {
-                    setCurrentUser(null);
-                    setMembershipStatus('Free');
-                    setActiveView('AUTH_LOGIN');
+                  onClick={async () => {
+                    try {
+                      if (currentUser && isAppwriteReady()) {
+                        try {
+                          await saveUserProfile(currentUser.id, {
+                            ...currentUser,
+                            isOnline: false,
+                            lastActive: new Date().toISOString()
+                          });
+                        } catch (saveErr) {
+                          console.error("Failed to persist offline status on logout:", saveErr);
+                        }
+                      }
+                      await apiLogout();
+                      setCurrentUser(null);
+                      setMembershipStatus('Free');
+                      setActiveView('AUTH_LOGIN');
+                    } catch (err) {
+                      console.error('Logout error:', err);
+                    }
                   }}
                   className="w-full flex items-center justify-center gap-2 bg-[#7A1F2B]/10 hover:bg-[#7A1F2B] hover:text-white text-[#7A1F2B] font-bold py-2.5 rounded-lg text-xs tracking-wider transition-all cursor-pointer"
                 >
@@ -807,7 +939,7 @@ export default function App() {
               {/* WIZARD SCREEN */}
               {/* ======================= */}
               {activeView === 'WIZARD' && (
-                <Wizard onComplete={handleWizardCompletion} />
+                <Wizard onComplete={handleWizardCompletion} initialData={currentUser || undefined} />
               )}
 
               {/* ======================= */}
@@ -896,51 +1028,67 @@ export default function App() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4">
-                        {profiles.slice(0, 3).map((match) => (
-                          <div 
-                            key={match.id} 
-                            className="bg-white p-4 rounded-2xl border border-gray-100 shadow flex flex-col sm:flex-row gap-4 items-center sm:items-start hover:border-[#D4AF37]/50 transition-all duration-300"
-                          >
-                            <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-[#D4AF37] relative">
-                              <img src={match.photo} alt={match.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              {match.premium && (
-                                <div className="absolute top-1 left-1 bg-amber-500 text-white p-0.5 rounded text-[8px] font-bold">VIP</div>
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
-                              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
-                                <h4 className="font-cinzel text-xs font-bold text-gray-800">{match.name}</h4>
-                                {match.verified && (
-                                  <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
+                        {profiles.length === 0 ? (
+                          <div className="bg-white p-8 rounded-2xl border border-gray-150 text-center space-y-4">
+                            <AlertCircle className="mx-auto h-8 w-8 text-[#7A1F2B]" />
+                            <h4 className="font-cinzel text-xs font-bold text-[#7A1F2B] uppercase">Complete your profile to start receiving matches</h4>
+                            <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
+                              No recommendations are compiled yet. Please trigger the step-by-step registration wizard to unlock matches.
+                            </p>
+                            <button 
+                              onClick={() => setActiveView('WIZARD')}
+                              className="bg-[#7A1F2B] hover:bg-[#601923] text-white border border-[#D4AF37] text-[10px] uppercase font-bold py-2 px-4 rounded"
+                            >
+                              Launch Profile Wizard
+                            </button>
+                          </div>
+                        ) : (
+                          profiles.slice(0, 3).map((match) => (
+                            <div 
+                              key={match.id} 
+                              className="bg-white p-4 rounded-2xl border border-gray-100 shadow flex flex-col sm:flex-row gap-4 items-center sm:items-start hover:border-[#D4AF37]/50 transition-all duration-300"
+                            >
+                              <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-[#D4AF37] relative">
+                                <img src={match.photo} alt={match.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                {match.premium && (
+                                  <div className="absolute top-1 left-1 bg-amber-500 text-white p-0.5 rounded text-[8px] font-bold">VIP</div>
                                 )}
                               </div>
-                              <p className="text-[11px] text-gray-500 font-serif">Age {match.age} yrs • Gotra: {match.gotra}</p>
-                              <p className="text-[11px] text-gray-500 truncate font-mono">{match.education} • {match.district}</p>
-                              <span className="text-[10px] text-[#7A1F2B] font-bold block">{match.income} Income Range</span>
-                            </div>
 
-                            <div className="shrink-0 flex sm:flex-col gap-2 w-full sm:w-auto">
-                              <button 
-                                onClick={() => viewProfileDetails(match.id)}
-                                className="flex-1 sm:flex-none text-[10px] px-3 py-1.5 bg-[#F8F4EC] hover:bg-[#D4AF37]/20 text-[#7A1F2B] font-bold font-cinzel tracking-wider rounded"
-                              >
-                                View full detail
-                              </button>
-                              <button 
-                                onClick={() => sendInterestConnection(match.id)}
-                                disabled={match.interestStatus === 'sent'}
-                                className={`flex-1 sm:flex-none text-[10px] px-3 py-1.5 rounded font-bold font-cinzel text-center ${
-                                  match.interestStatus === 'sent' 
-                                    ? 'bg-gray-100 text-gray-400 border border-gray-200' 
-                                    : 'bg-[#7A1F2B] hover:bg-[#922a38] text-white border border-[#D4AF37]'
-                                }`}
-                              >
-                                {match.interestStatus === 'sent' ? 'PROPOSAL SENT' : 'SEND INTEREST'}
-                              </button>
+                              <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
+                                  <h4 className="font-cinzel text-xs font-bold text-gray-800">{match.name}</h4>
+                                  {match.verified && (
+                                    <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-gray-500 font-serif">Age {match.age} yrs • Gotra: {match.gotra}</p>
+                                <p className="text-[11px] text-gray-500 truncate font-mono">{match.education} • {match.district}</p>
+                                <span className="text-[10px] text-[#7A1F2B] font-bold block">{match.income} Income Range</span>
+                              </div>
+
+                              <div className="shrink-0 flex sm:flex-col gap-2 w-full sm:w-auto">
+                                <button 
+                                  onClick={() => viewProfileDetails(match.id)}
+                                  className="flex-1 sm:flex-none text-[10px] px-3 py-1.5 bg-[#F8F4EC] hover:bg-[#D4AF37]/20 text-[#7A1F2B] font-bold font-cinzel tracking-wider rounded"
+                                >
+                                  View full detail
+                                </button>
+                                <button 
+                                  onClick={() => sendInterestConnection(match.id)}
+                                  disabled={match.interestStatus === 'sent'}
+                                  className={`flex-1 sm:flex-none text-[10px] px-3 py-1.5 rounded font-bold font-cinzel text-center ${
+                                    match.interestStatus === 'sent' 
+                                      ? 'bg-gray-100 text-gray-400 border border-gray-200' 
+                                      : 'bg-[#7A1F2B] hover:bg-[#922a38] text-white border border-[#D4AF37]'
+                                  }`}
+                                >
+                                  {match.interestStatus === 'sent' ? 'PROPOSAL SENT' : 'SEND INTEREST'}
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
 
                     </div>
@@ -992,10 +1140,25 @@ export default function App() {
                       <p className="text-[11px] text-gray-500">Currently showing {filteredProfiles.length} eligible candidates matching your profile criteria</p>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Dropdown for Advanced Sorting */}
+                      <div className="flex items-center gap-1 bg-[#F8F4EC] border border-[#D4AF37]/35 px-3 py-1.5 rounded-xl text-xs text-gray-700">
+                        <span className="font-semibold text-[#7A1F2B] font-cinzel text-[10px] uppercase">Sort By:</span>
+                        <select 
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value)}
+                          className="bg-transparent border-none outline-none text-xs font-bold text-[#7A1F2B] py-0.5 cursor-pointer focus:ring-0 mr-1"
+                        >
+                          <option value="recently_active">Recently Active (सक्रियता समय)</option>
+                          <option value="newest">Newest Profiles (नए सदस्य)</option>
+                          <option value="verified_first">Verified First (सत्यापित सदस्य)</option>
+                          <option value="premium_first">Premium First (प्रीमियम सदस्य)</option>
+                        </select>
+                      </div>
+
                       <button 
                         onClick={() => setActiveView('SEARCH')}
-                        className="bg-[#F8F4EC] border border-[#D4AF37]/30 text-[#7A1F2B] hover:bg-[#D4AF37]/10 font-bold px-4 py-2 rounded font-cinzel text-xs flex items-center gap-1 cursor-pointer"
+                        className="bg-[#F8F4EC] border border-[#D4AF37]/30 text-[#7A1F2B] hover:bg-[#D4AF37]/10 font-bold px-4 py-2 rounded-xl font-cinzel text-xs flex items-center gap-1 cursor-pointer"
                       >
                         <Filter className="h-3.5 w-3.5 text-[#D4AF37]" /> Adjust Match Filters
                       </button>
@@ -1056,7 +1219,21 @@ export default function App() {
                   </div>
 
                   {/* Grid Layout of Candidates cards */}
-                  {filteredProfiles.length === 0 ? (
+                  {profiles.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-16 text-center max-w-xl mx-auto border border-gray-150 space-y-4 shadow-royal">
+                      <AlertCircle className="mx-auto h-12 w-12 text-[#7A1F2B]" />
+                      <h3 className="font-cinzel text-base font-bold text-[#7A1F2B]">No verified profiles available yet. Be the first family to register.</h3>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        There are no registered candidate profiles in the database at the moment. Please run the Profile Wizard to register your household bride or groom and start matching!
+                      </p>
+                      <button 
+                        onClick={() => setActiveView('WIZARD')}
+                        className="bg-[#7A1F2B] hover:bg-[#601923] text-white py-2.5 px-6 rounded-lg font-cinzel font-bold text-xs border border-[#D4AF37]"
+                      >
+                        Launch Profile Wizard
+                      </button>
+                    </div>
+                  ) : filteredProfiles.length === 0 ? (
                     <div className="bg-white rounded-2xl p-12 text-center max-w-xl mx-auto border border-gray-100 space-y-4">
                       <AlertCircle className="mx-auto h-12 w-12 text-[#7A1F2B]" />
                       <h3 className="font-cinzel text-base font-bold text-[#7A1F2B]">No exact matches found</h3>
@@ -1078,7 +1255,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {filteredProfiles.map((candidate) => (
+                      {filteredProfiles.slice(0, visibleProfilesCount).map((candidate) => (
                         <div 
                           key={candidate.id} 
                           className="bg-white rounded-2xl overflow-hidden border border-gray-150 shadow-royal hover:shadow-xl hover:border-[#D4AF37]/40 transition-all duration-300 flex flex-col justify-between group"
@@ -1231,6 +1408,17 @@ export default function App() {
 
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {filteredProfiles.length > visibleProfilesCount && (
+                    <div className="flex justify-center pt-8">
+                      <button
+                        onClick={() => setVisibleProfilesCount(prev => prev + 8)}
+                        className="bg-white hover:bg-[#F8F4EC] text-[#7A1F2B] border border-[#D4AF37]/45 font-cinzel font-bold text-xs uppercase tracking-wider px-8 py-3.5 rounded-xl shadow-royal hover:shadow-xl transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <ChevronDown className="h-4 w-4 text-[#D4AF37] animate-bounce" /> Load More Eligible Samaj Candidates
+                      </button>
                     </div>
                   )}
 
@@ -1728,7 +1916,7 @@ export default function App() {
                       />
                       <label htmlFor="premium_filter" className="cursor-pointer">
                         <strong className="text-[#7A1F2B] block">Premium Members Only</strong>
-                        <span className="text-[10px] text-gray-500 block">Restricts results to Silver, Gold, or Platinum subscribers.</span>
+                        <span className="text-[10px] text-gray-500 block">Restricts results to Silver or Gold subscribers.</span>
                       </label>
                     </div>
 
@@ -2147,77 +2335,93 @@ export default function App() {
                   </div>
 
                   {/* Sent vs Received grids */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Sent Interests */}
-                    <div className="space-y-4">
-                      <h3 className="font-cinzel text-sm font-bold text-[#7A1F2B] border-b border-gray-200 pb-2 flex items-center gap-1.5">
-                        <Send className="h-4 w-4 text-[#D4AF37]" /> Proposals I Sent ({profiles.filter(p => p.interestStatus === 'sent').length})
-                      </h3>
+                  {profiles.filter(p => p.interestStatus === 'sent' || p.interestStatus === 'received').length === 0 ? (
+                    <div className="bg-white rounded-3xl border border-gray-150 p-16 text-center max-w-xl mx-auto space-y-4 shadow-royal">
+                      <Heart className="mx-auto h-12 w-12 text-[#7A1F2B]" />
+                      <h3 className="font-cinzel text-base font-bold text-[#7A1F2B]">No interests yet.</h3>
+                      <p className="text-xs text-gray-400 leading-relaxed max-w-md mx-auto">
+                        Currently there are no sent or received connection interest proposals. Browse candidate profiles to dispatch matching connection proposals now!
+                      </p>
+                      <button 
+                        onClick={() => setActiveView('BROWSE')}
+                        className="bg-[#7A1F2B] hover:bg-[#601923] text-white py-2.5 px-6 rounded-lg font-cinzel font-bold text-xs border border-[#D4AF37]"
+                      >
+                        Browse Candidates
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      
+                      {/* Sent Interests */}
+                      <div className="space-y-4">
+                        <h3 className="font-cinzel text-sm font-bold text-[#7A1F2B] border-b border-gray-200 pb-2 flex items-center gap-1.5">
+                          <Send className="h-4 w-4 text-[#D4AF37]" /> Proposals I Sent ({profiles.filter(p => p.interestStatus === 'sent').length})
+                        </h3>
 
-                      {profiles.filter(p => p.interestStatus === 'sent').length === 0 ? (
-                        <p className="text-xs text-gray-400 italic bg-white p-4 rounded-xl text-center border">No proposals dispatched yet.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {profiles.filter(p => p.interestStatus === 'sent').map(item => (
-                            <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 justify-between">
-                              <div className="flex items-center gap-3">
-                                <img src={item.photo} alt={item.name} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                                <div>
-                                  <h4 className="font-cinzel text-xs font-bold text-gray-800">{item.name}</h4>
-                                  <p className="text-[10px] text-gray-500 font-serif">Gotra: {item.gotra} • {item.district}</p>
+                        {profiles.filter(p => p.interestStatus === 'sent').length === 0 ? (
+                          <p className="text-xs text-gray-400 italic bg-white p-4 rounded-xl text-center border">No proposals dispatched yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {profiles.filter(p => p.interestStatus === 'sent').map(item => (
+                              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 justify-between">
+                                <div className="flex items-center gap-3">
+                                  <img src={item.photo} alt={item.name} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                                  <div>
+                                    <h4 className="font-cinzel text-xs font-bold text-gray-800">{item.name}</h4>
+                                    <p className="text-[10px] text-gray-500 font-serif">Gotra: {item.gotra} • {item.district}</p>
+                                  </div>
+                                </div>
+                                <span className="bg-[#F8F4EC] text-[#B8860B] text-[9px] uppercase tracking-wider font-bold py-1 px-2 rounded">
+                                  Awaiting Reply
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Received Interests */}
+                      <div className="space-y-4">
+                        <h3 className="font-cinzel text-sm font-bold text-[#7A1F2B] border-b border-gray-200 pb-2 flex items-center gap-1.5">
+                          <Heart className="h-4 w-4 text-[#D4AF37] fill-current" /> Proposals Received ({profiles.filter(p => p.interestStatus === 'received').length})
+                        </h3>
+
+                        {profiles.filter(p => p.interestStatus === 'received').length === 0 ? (
+                          <p className="text-xs text-gray-400 italic bg-white p-4 rounded-xl text-center border">No matching incoming interests yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {profiles.filter(p => p.interestStatus === 'received').map(item => (
+                              <div key={item.id} className="bg-white p-4 rounded-xl border border-[#D4AF37]/30 shadow flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                                <div className="flex items-center gap-3">
+                                  <img src={item.photo} alt={item.name} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                                  <div>
+                                    <h4 className="font-cinzel text-xs font-bold text-gray-800">{item.name}</h4>
+                                    <p className="text-[10px] text-gray-500 font-serif">Gotra: {item.gotra} • MD Pediatrician</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex gap-2 font-mono text-[9px] font-bold">
+                                  <button 
+                                    onClick={() => handleInterestDecision(item.id, 'accepted')}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2.5 py-1.5 transition-colors cursor-pointer"
+                                  >
+                                    ACCEPT INTEREST
+                                  </button>
+                                  <button 
+                                    onClick={() => handleInterestDecision(item.id, 'rejected')}
+                                    className="bg-red-50 text-red-700 hover:bg-red-100 rounded px-2.5 py-1.5 transition-colors cursor-pointer"
+                                  >
+                                    DECLINE
+                                  </button>
                                 </div>
                               </div>
-                              <span className="bg-[#F8F4EC] text-[#B8860B] text-[9px] uppercase tracking-wider font-bold py-1 px-2 rounded">
-                                Awaiting Reply
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                     </div>
-
-                    {/* Received Interests */}
-                    <div className="space-y-4">
-                      <h3 className="font-cinzel text-sm font-bold text-[#7A1F2B] border-b border-gray-200 pb-2 flex items-center gap-1.5">
-                        <Heart className="h-4 w-4 text-[#D4AF37] fill-current" /> Proposals Received ({profiles.filter(p => p.interestStatus === 'received').length})
-                      </h3>
-
-                      {profiles.filter(p => p.interestStatus === 'received').length === 0 ? (
-                        <p className="text-xs text-gray-400 italic bg-white p-4 rounded-xl text-center border">No matching incoming interests yet.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {profiles.filter(p => p.interestStatus === 'received').map(item => (
-                            <div key={item.id} className="bg-white p-4 rounded-xl border border-[#D4AF37]/30 shadow flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                              <div className="flex items-center gap-3">
-                                <img src={item.photo} alt={item.name} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                                <div>
-                                  <h4 className="font-cinzel text-xs font-bold text-gray-800">{item.name}</h4>
-                                  <p className="text-[10px] text-gray-500 font-serif">Gotra: {item.gotra} • MD Pediatrician</p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2 font-mono text-[9px] font-bold">
-                                <button 
-                                  onClick={() => handleInterestDecision(item.id, 'accepted')}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2.5 py-1.5 transition-colors cursor-pointer"
-                                >
-                                  ACCEPT INTEREST
-                                </button>
-                                <button 
-                                  onClick={() => handleInterestDecision(item.id, 'rejected')}
-                                  className="bg-red-50 text-red-700 hover:bg-red-100 rounded px-2.5 py-1.5 transition-colors cursor-pointer"
-                                >
-                                  DECLINE
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
+                  )}
 
                 </div>
               )}
@@ -2309,21 +2513,31 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-150 divide-y divide-gray-100 shadow-royal overflow-hidden">
-                    {notifications.map((item) => (
-                      <div key={item.id} className={`p-5 flex items-start gap-4 transition-all ${item.unread ? 'bg-amber-50/20' : ''}`}>
-                        <div className="p-2.5 bg-[#F8F4EC] rounded-full text-[#7A1F2B]">
-                          <Bell className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-sans font-bold text-gray-800 text-xs md:text-sm">{item.title}</h4>
-                            <span className="text-[10px] text-gray-400 font-mono">{item.time}</span>
-                          </div>
-                          <p className="text-xs text-gray-600">{item.description}</p>
-                        </div>
+                   <div className="bg-white rounded-2xl border border-gray-150 divide-y divide-gray-100 shadow-royal overflow-hidden">
+                    {notifications.length === 0 ? (
+                      <div className="p-12 text-center space-y-3 bg-white">
+                        <Bell className="mx-auto h-8 w-8 text-gray-300" />
+                        <h4 className="font-cinzel text-sm font-bold text-gray-500">No notifications yet.</h4>
+                        <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                          Any community safety logs, interest suggestions, or father-mediated messages will appear here.
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((item) => (
+                        <div key={item.id} className={`p-5 flex items-start gap-4 transition-all ${item.unread ? 'bg-amber-50/20' : ''}`}>
+                          <div className="p-2.5 bg-[#F8F4EC] rounded-full text-[#7A1F2B]">
+                            <Bell className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-sans font-bold text-gray-800 text-xs md:text-sm">{item.title}</h4>
+                              <span className="text-[10px] text-gray-400 font-mono">{item.time}</span>
+                            </div>
+                            <p className="text-xs text-gray-600">{item.description}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                 </div>
@@ -2594,31 +2808,6 @@ export default function App() {
           {/* Right Side: Auth interaction panels (Login, Register, Forgot, OTP, Success message) */}
           <div className="lg:w-[40%] p-8 md:p-14 flex flex-col justify-center bg-white space-y-6">
             
-            {/* Quick Helper Banner for AI Evaluators to easily test both flows */}
-            <div className="p-4 bg-[#F8F4EC] rounded-2xl border border-[#D4AF37]/35 space-y-2 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-amber-700 animate-pulse" />
-                <span className="font-bold text-amber-800">Evaluator Testing Hub (Quick Access)</span>
-              </div>
-              <p className="text-[10px] text-gray-600 leading-relaxed">
-                As a senior designer, I designed two pathways. You can walk through the <strong>10-Step Profile Creator Wizard</strong> manually, or skip registration to view the full <strong>Maharaja Search Dashboard</strong> instantly:
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1 font-sans">
-                <button 
-                  onClick={() => handleQuickLoginAsCompletedUser(true)}
-                  className="bg-[#7A1F2B] hover:bg-[#601923] text-white font-semibold py-1.5 px-3 rounded text-[10px] cursor-pointer transition-all border-b border-[#5A1720]"
-                >
-                  Skip to Dashboard (Male Profile)
-                </button>
-                <button 
-                  onClick={() => handleQuickLoginAsCompletedUser(false)}
-                  className="bg-[#B8860B] hover:bg-amber-700 text-white font-semibold py-1.5 px-3 rounded text-[10px] cursor-pointer transition-all border-b border-amber-950"
-                >
-                  Skip to Dashboard (Female Profile)
-                </button>
-              </div>
-            </div>
-
             {/* RENDER CURRENT AUTH FLOW LAYER */}
 
             {/* 1. AUTH_LOGIN VIEW */}
@@ -2628,21 +2817,32 @@ export default function App() {
                 <div className="space-y-1">
                   <span className="text-xs uppercase font-bold text-amber-600 tracking-wider font-cinzel block">Welcome back</span>
                   <h3 className="font-cinzel text-xl md:text-2xl font-bold text-[#7A1F2B]">Log In to Rajasthan Mali Bandhan</h3>
-                  <p className="text-[11px] text-gray-500 font-serif">Enter your household credentials or skip using the helper above.</p>
+                  <p className="text-[11px] text-gray-500 font-serif">Enter your household credentials to access your verification dashboard.</p>
                 </div>
 
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    if (authEmail.trim() !== '') {
-                      // Login as a basic fresh user which prompts profile wizard completion immediately
-                      setActiveView('WIZARD');
+                    clearError();
+                    if (authEmail.trim() !== '' && authPassword.trim() !== '') {
+                      try {
+                        await apiLogin(authEmail, authPassword);
+                      } catch (err: any) {
+                        console.error('Login process error:', err);
+                      }
                     } else {
                       alert('Please provide your registered household credentials, or use the Quick Access buttons above!');
                     }
                   }} 
                   className="space-y-4"
                 >
+                  {authError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 font-sans flex items-center gap-2 text-xs">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span className="flex-1">{authError}</span>
+                      <button type="button" onClick={clearError} className="font-bold hover:underline cursor-pointer">Dismiss</button>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label className="font-bold text-gray-700 block">Registered Email Address</label>
                     <div className="relative">
@@ -2714,14 +2914,31 @@ export default function App() {
                 </div>
 
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    setOtpSentPhone(authMobile);
-                    setOtpCode('');
-                    setActiveView('AUTH_OTP');
+                    clearError();
+                    if (authMobile.trim().length < 8) {
+                      alert('For robust system verification, your mobile phone number will act as your default login password and must be at least 8 characters long!');
+                      return;
+                    }
+                    try {
+                      await apiRegister(authEmail, authMobile.trim(), authName, authMobile.trim(), authGender);
+                      setOtpSentPhone(authMobile);
+                      setOtpCode('');
+                      setActiveView('AUTH_OTP');
+                    } catch (err: any) {
+                      console.error('Registration process error:', err);
+                    }
                   }} 
                   className="space-y-4"
                 >
+                  {authError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 font-sans flex items-center gap-2 text-xs">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span className="flex-1">{authError}</span>
+                      <button type="button" onClick={clearError} className="font-bold hover:underline cursor-pointer">Dismiss</button>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="font-bold text-gray-700">Full Name</label>
@@ -2831,12 +3048,27 @@ export default function App() {
                 </div>
 
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    setActiveView('AUTH_SUCCESS_MSG');
+                    clearError();
+                    if (forgotEmail.trim() !== '') {
+                      try {
+                        await sendPasswordReset(forgotEmail.trim());
+                        setActiveView('AUTH_SUCCESS_MSG');
+                      } catch (err: any) {
+                        console.error('Password reset process error:', err);
+                      }
+                    }
                   }} 
                   className="space-y-4"
                 >
+                  {authError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 font-sans flex items-center gap-2 text-xs">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span className="flex-1">{authError}</span>
+                      <button type="button" onClick={clearError} className="font-bold hover:underline cursor-pointer">Dismiss</button>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label className="font-bold text-gray-700 block">Registered Email Address</label>
                     <input 

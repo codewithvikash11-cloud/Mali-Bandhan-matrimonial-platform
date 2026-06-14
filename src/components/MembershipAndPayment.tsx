@@ -7,8 +7,8 @@ import { PaymentDetails } from '../types';
 import { MOCK_PAYMENT_HISTORY } from '../mockData';
 
 interface MembershipProps {
-  currentMembershipStatus: 'Free' | 'Silver' | 'Gold' | 'Platinum';
-  onUpgradeStatus: (newPlan: 'Silver' | 'Gold' | 'Platinum') => void;
+  currentMembershipStatus: 'Free' | 'Silver' | 'Gold';
+  onUpgradeStatus: (newPlan: 'Silver' | 'Gold') => void;
   onSetScreenState: (state: any) => void;
 }
 
@@ -387,28 +387,36 @@ export default function MembershipAndPayment({
           <div className="space-y-4">
             <h3 className="font-cinzel text-base font-bold text-[#7A1F2B] border-b border-gray-100 pb-2">Your Household Payment History</h3>
             
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-royal overflow-hidden">
+             <div className="bg-white rounded-2xl border border-gray-100 shadow-royal overflow-hidden">
               <div className="grid grid-cols-1 divide-y divide-gray-100 text-xs">
-                {paymentHistory.map((hist, index) => (
-                  <div key={index} className="p-4 sm:flex items-center justify-between gap-4 py-5 hover:bg-slate-50/40">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-sans font-extrabold text-[#7A1F2B] text-xs">{hist.planName}</span>
-                        <span className={`p-1 px-2.5 rounded-full text-[9px] uppercase tracking-wider font-mono font-bold ${
-                          hist.status === 'Success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700'
-                        }`}>
-                          {hist.status}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 font-mono">Invoice Ref: {hist.paymentId} | Date: {hist.date}</p>
-                    </div>
-
-                    <div className="mt-2 sm:mt-0 text-right">
-                      <span className="font-serif font-black text-gray-800 text-sm block">{hist.price}</span>
-                      <span className="text-[9px] text-amber-600 italic font-sans font-medium">Mali Bandhan Shagun Gateway</span>
-                    </div>
+                {paymentHistory.length === 0 ? (
+                  <div className="p-8 text-center bg-white space-y-2">
+                    <AlertCircle className="mx-auto h-7 w-7 text-[#7A1F2B]" />
+                    <p className="font-sans font-bold text-gray-600 text-xs">No active membership.</p>
+                    <p className="text-[10px] text-gray-400 max-w-sm mx-auto">There are no documented premium plan payments or active verification records associated with this account. Choose a package above to begin.</p>
                   </div>
-                ))}
+                ) : (
+                  paymentHistory.map((hist, index) => (
+                    <div key={index} className="p-4 sm:flex items-center justify-between gap-4 py-5 hover:bg-slate-50/40">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-sans font-extrabold text-[#7A1F2B] text-xs">{hist.planName}</span>
+                          <span className={`p-1 px-2.5 rounded-full text-[9px] uppercase tracking-wider font-mono font-bold ${
+                            hist.status === 'Success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700'
+                          }`}>
+                            {hist.status}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-mono">Invoice Ref: {hist.paymentId} | Date: {hist.date}</p>
+                      </div>
+
+                      <div className="mt-2 sm:mt-0 text-right">
+                        <span className="font-serif font-black text-gray-800 text-sm block">{hist.price}</span>
+                        <span className="text-[9px] text-amber-600 italic font-sans font-medium">Mali Bandhan Shagun Gateway</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

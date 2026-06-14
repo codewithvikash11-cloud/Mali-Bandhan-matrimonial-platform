@@ -183,55 +183,71 @@ export default function SuccessStories({ stories, onAddStory }: SuccessStoriesPr
       )}
 
       {/* Grid Layout of Stories */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {stories.map((storyItem) => (
-          <div key={storyItem.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-royal hover:shadow-xl transition-all duration-300 flex flex-col group">
-            
-            {/* Story Image container */}
-            <div className="h-56 relative overflow-hidden bg-gray-50">
-              <img 
-                src={storyItem.photo} 
-                alt={storyItem.coupleName}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1F1F1F]/80 via-transparent to-transparent"></div>
+      {stories.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-150 p-12 text-center space-y-4 shadow-royal max-w-xl mx-auto">
+          <Heart className="mx-auto h-12 w-12 text-[#7A1F2B]" />
+          <h3 className="font-cinzel text-base font-bold text-[#7A1F2B]">No success stories yet.</h3>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            There are no documented matrimonial success stories listed yet selv-verified by the Samaj. Be the first household to share your beautiful Shubh Bandhan union!
+          </p>
+          <button 
+            onClick={() => setShowForm(true)}
+            className="bg-[#7A1F2B] hover:bg-[#601923] text-white py-2 px-6 rounded font-cinzel font-bold text-xs border border-[#D4AF37]"
+          >
+            Be the first to share your happy bond!
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {stories.map((storyItem) => (
+            <div key={storyItem.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-royal hover:shadow-xl transition-all duration-300 flex flex-col group">
               
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
-                <span className="bg-[#D4AF37] text-[#7A1F2B] font-bold text-[10px] px-2.5 py-1 rounded-full font-cinzel tracking-wider flex items-center gap-1">
-                  <Heart className="h-3 w-3 fill-current" /> ROYAL MARRIAGE
-                </span>
-                <span className="text-xs font-mono flex items-center gap-1 drop-shadow">
-                  <Calendar className="h-3.5 w-3.5 text-[#D4AF37]" /> {storyItem.weddingDate}
-                </span>
-              </div>
-            </div>
-
-            {/* Story Content wrapper */}
-            <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-amber-600 text-xs font-mono font-semibold">
-                  <Landmark className="h-3.5 w-3.5" />
-                  <span>{storyItem.location}, Rajasthan</span>
+              {/* Story Image container */}
+              <div className="h-56 relative overflow-hidden bg-gray-50">
+                <img 
+                  src={storyItem.photo} 
+                  alt={storyItem.coupleName}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1F1F1F]/80 via-transparent to-transparent"></div>
+                
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                  <span className="bg-[#D4AF37] text-[#7A1F2B] font-bold text-[10px] px-2.5 py-1 rounded-full font-cinzel tracking-wider flex items-center gap-1">
+                    <Heart className="h-3 w-3 fill-current" /> ROYAL MARRIAGE
+                  </span>
+                  <span className="text-xs font-mono flex items-center gap-1 drop-shadow">
+                    <Calendar className="h-3.5 w-3.5 text-[#D4AF37]" /> {storyItem.weddingDate}
+                  </span>
                 </div>
-                
-                <h3 className="font-cinzel text-lg font-bold text-[#7A1F2B] tracking-tight">{storyItem.coupleName}</h3>
-                <p className="text-xs font-serif italic text-gray-500 font-medium">{storyItem.gotras}</p>
-                
-                <p className="text-xs text-gray-600 leading-relaxed pt-2">
-                  "{storyItem.story}"
-                </p>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                <span>Verified Match Matchmaker</span>
-                <span className="text-[#7A1F2B] font-semibold">★ ★ ★ ★ ★</span>
+              {/* Story Content wrapper */}
+              <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-amber-600 text-xs font-mono font-semibold">
+                    <Landmark className="h-3.5 w-3.5" />
+                    <span>{storyItem.location}, Rajasthan</span>
+                  </div>
+                  
+                  <h3 className="font-cinzel text-lg font-bold text-[#7A1F2B] tracking-tight">{storyItem.coupleName}</h3>
+                  <p className="text-xs font-serif italic text-gray-500 font-medium">{storyItem.gotras}</p>
+                  
+                  <p className="text-xs text-gray-600 leading-relaxed pt-2">
+                    "{storyItem.story}"
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
+                  <span>Verified Match Matchmaker</span>
+                  <span className="text-[#7A1F2B] font-semibold">★ ★ ★ ★ ★</span>
+                </div>
               </div>
+
             </div>
-
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Community Callout */}
       <div className="bg-gradient-to-b from-[#F8F4EC] to-white rounded-2xl border border-[#D4AF37]/30 p-8 text-center space-y-3">

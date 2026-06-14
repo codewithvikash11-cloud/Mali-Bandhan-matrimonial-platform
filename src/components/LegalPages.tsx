@@ -157,7 +157,7 @@ export default function LegalPages() {
             <div className="space-y-3">
               <h3 className="font-cinzel text-xs font-bold text-[#7A1F2B] uppercase">1. Non-Refundable Nature</h3>
               <p>
-                Payments made for Silver, Gold, or Platinum premium packages are strictly non-refundable. Subscriptions cannot be transferred or deferred to another family member.
+                Payments made for Silver or Gold premium packages are strictly non-refundable. Subscriptions cannot be transferred or deferred to another family member.
               </p>
             </div>
 
